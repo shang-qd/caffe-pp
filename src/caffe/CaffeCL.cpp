@@ -7,16 +7,18 @@
 #include <vector>
 #include <string>
 
+#include <glog/logging.h>
+
 CaffeCL::CaffeCL() : m_context(nullptr), m_commandQueue(nullptr), m_device(nullptr)
 {
 	if (CreateContext() == false)
 	{
-		std::cerr << "Failed to create OpenCL context." << std::endl;
+		LOG(FATAL) << "CaffeCL 上下文创建失败";
 		return;
 	}
 	if (CreateCommandQueue() == false)
 	{
-		std::cerr << "Failed to create OpenCL CommandQueue." << std::endl;
+		LOG(FATAL) << "CaffeCL 队列创建失败";
 		return;
 	}
 }
@@ -42,7 +44,7 @@ bool CaffeCL::CreateContext()
 	errNum = clGetPlatformIDs(1, &firstPlatformId, &numPlatforms);
 	if (errNum != CL_SUCCESS || numPlatforms <= 0)
 	{
-		std::cerr << "Failed to find any OpenCL platforms." << std::endl;
+		LOG(FATAL) << "CaffeCL::CreateContext 失败" << errNum;
 		return nullptr;
 	}
 
@@ -56,12 +58,12 @@ bool CaffeCL::CreateContext()
 		NULL, NULL, &errNum);
 	if (errNum != CL_SUCCESS)
 	{
-		std::cout << "Could not create GPU context, trying CPU..." << std::endl;
+		LOG(INFO) << "Could not create GPU context, trying CPU...";
 		m_context = clCreateContextFromType(contextProperties, CL_DEVICE_TYPE_CPU,
 			NULL, NULL, &errNum);
 		if (errNum != CL_SUCCESS)
 		{
-			std::cerr << "Failed to create an OpenCL GPU or CPU context." << std::endl;
+			LOG(FATAL) << "CaffeCL::CreateContext 失败" << errNum;
 			return false;
 		}
 	}
@@ -73,17 +75,16 @@ bool CaffeCL::CreateCommandQueue()
 	cl_int errNum;
 	cl_device_id *devices;
 	size_t deviceBufferSize = -1;
-
 	errNum = clGetContextInfo(m_context, CL_CONTEXT_DEVICES, 0, NULL, &deviceBufferSize);
 	if (errNum != CL_SUCCESS)
 	{
-		std::cerr << "Failed call to clGetContextInfo(...,GL_CONTEXT_DEVICES,...)";
+		LOG(FATAL) << "CaffeCL::CreateCommandQueue 创建上下文失败";
 		return false;
 	}
 
 	if (deviceBufferSize <= 0)
 	{
-		std::cerr << "No devices available.";
+		LOG(FATAL) << "CaffeCL::CreateCommandQueue 没有发现设备" << errNum;
 		return false;
 	}
 
@@ -92,15 +93,15 @@ bool CaffeCL::CreateCommandQueue()
 	if (errNum != CL_SUCCESS)
 	{
 		delete[] devices;
-		std::cerr << "Failed to get device IDs";
+		LOG(FATAL) << "CaffeCL::CreateCommandQueue " << errNum;
 		return false;
 	}
-
-	m_commandQueue = clCreateCommandQueue(m_context, devices[0], 0, NULL);
+	// 命令队列顺序执行，不乱序，现在还没有加任何同步措施
+	m_commandQueue = clCreateCommandQueue(m_context, devices[0], CL_QUEUE_PROFILING_ENABLE, &errNum);
 	if (m_commandQueue == nullptr)
 	{
 		delete[] devices;
-		std::cerr << "Failed to create commandQueue for device 0";
+		LOG(FATAL) << "CaffeCL::CreateCommandQueue  队列创建失败" << errNum;
 		return false;
 	}
 
@@ -111,11 +112,16 @@ bool CaffeCL::CreateCommandQueue()
 
 bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 {
+	if (m_programs.find(fileName) != m_programs.end())
+	{
+		// 表示文件已经编译过了
+		return true;
+	}
+	cl_int err = CL_SUCCESS;
 	std::ifstream kernelFile(fileName, std::ios::in);
 	if (!kernelFile.is_open())
 	{
-		std::cerr << "Failed to open file for reading: " << fileName << std::endl;
-		throw "没有找到文件";
+		LOG(FATAL) << "CaffeCL::CreateProgram 文件没有找到" << fileName;
 		return false;
 	}
 
@@ -125,10 +131,10 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 	std::string srcStdStr = oss.str();
 	const char *srcStr = srcStdStr.c_str();
 	cl_program program = clCreateProgramWithSource(m_context, 1,
-		(const char**)&srcStr,NULL, NULL);
+		(const char**)&srcStr,NULL, &err);
 	if (program == nullptr)
 	{
-		std::cerr << "Failed to create CL program from source." << std::endl;
+		LOG(FATAL) << "CaffeCL::CreateProgram 文件没有找到" << err;
 		return false;
 	}
 
@@ -138,9 +144,7 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 		char buildLog[16384];
 		clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG,sizeof(buildLog), buildLog, NULL);
 
-		std::cerr << "Error in kernel: " << std::endl;
-		std::cerr << buildLog;
-		clReleaseProgram(program);
+		LOG(FATAL) << "CaffeCL::CreateProgram 程序编译错误" << buildLog;
 		return false;
 	}
 	program_info pi;
@@ -151,7 +155,7 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 		cl_kernel k = clCreateKernel(program, vsk[i].c_str(), nullptr);
 		if (k == nullptr)
 		{
-			std::cerr << "Failed to create kernel" << std::endl;
+			LOG(FATAL) << "CaffeCL::CreateProgram 内核函数创建失败" << vsk[i];
 		}
 		kernels.insert(std::make_pair(vsk[i], k));
 	}
@@ -162,53 +166,127 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 
 cl_mem CaffeCL::CreateReadMem(void *d, int size)
 {
-	return clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size, d, nullptr);
+	cl_mem mem;
+	cl_int err = CL_SUCCESS;
+	mem = clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size, d, &err);
+	if (err != CL_SUCCESS)
+	{
+		LOG(FATAL) << "CaffeCL::CreateReadMem失败" << err;
+	}
+	return mem;
 }
 
-cl_mem CaffeCL::CreateWriteMem(int size)
+cl_mem CaffeCL::CreateWriteMem(void *d, int size)
 {
-	return clCreateBuffer(m_context, CL_MEM_READ_WRITE,size, nullptr, nullptr);
+	cl_mem mem;
+	cl_int err = CL_SUCCESS;
+	if (d == nullptr)
+	{
+		mem = clCreateBuffer(m_context, CL_MEM_READ_WRITE, size, nullptr, &err);
+	}
+	else
+	{
+		mem = clCreateBuffer(m_context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, size, d, &err);
+	}
+	if (err != CL_SUCCESS)
+	{
+		LOG(FATAL) << "CaffeCL::CreateWriteMem失败" << err;
+	}
+	return mem;
 }
 
-/*
-void CaffeCL::Sample(const string &k)
+bool CaffeCL::ExecKernel(cl_kernel kernel, int dim, const size_t *g, const size_t *l)
 {
-int  ARRAY_SIZE = 128;
-float *result = new float[ARRAY_SIZE];
-float *a = new float[ARRAY_SIZE];
-float *b = new float[ARRAY_SIZE];
-for (int i = 0; i < ARRAY_SIZE; i++)
+	cl_int res = clEnqueueNDRangeKernel(m_commandQueue, kernel, dim, nullptr, g, l, 0, nullptr, nullptr);
+	
+	if (res != CL_SUCCESS)
+	{
+		LOG(FATAL) << "CaffeCL::ExecKernel失败" << res;
+	}
+	return true;
+}
+
+// 内存复制
+void CaffeCL::gpu2host(int size, void *gpu_ptr, void*cpu_ptr)
 {
-a[i] = (float)i;
-b[i] = (float)(i * 2);
+	cl_int res = clEnqueueReadBuffer(m_commandQueue, (cl_mem)gpu_ptr, CL_TRUE, 0, size, cpu_ptr, 0, nullptr, nullptr);
+	if (res != CL_SUCCESS)
+	{
+		LOG(FATAL) << "CaffeCL::gpu2host失败" << res;
+	}
 }
-cl_kernel kernel = kernels[k];
-cl_mem mem_a = CreateReadMem(a,ARRAY_SIZE);
-cl_mem mem_b = CreateReadMem(b, ARRAY_SIZE);
-cl_mem mem_res = CreateWriteMem(ARRAY_SIZE);
 
-clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem_a);
-clSetKernelArg(kernel, 1, sizeof(cl_mem), &mem_b);
-clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem_res);
-
-size_t globalWorkSize[1] = { ARRAY_SIZE };
-size_t localWorkSize[1] = { 128 };
-
-errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr,
-globalWorkSize, localWorkSize, 0, nullptr, nullptr);
-
-clEnqueueReadBuffer(commandQueue, mem_res, CL_TRUE,
-0, ARRAY_SIZE * sizeof(float), result,0, nullptr, nullptr);
-
-clReleaseMemObject(mem_a);
-clReleaseMemObject(mem_b);
-clReleaseMemObject(mem_res);
-
-for (int i = 0; i < ARRAY_SIZE; i++)
+bool CaffeCL::read_buf(cl_mem mem, int size, void* p)
 {
-std::cout << result[i] << " ";
+	//printf("mem = %p; \n", mem);
+	//printf("size = %d; \n", size);
+	//printf("p = %p; \n", p);
+	//cl_int res = clEnqueueReadBuffer(m_commandQueue, mem, CL_TRUE, 0, size, p, 0, nullptr, nullptr);
+	return true;
 }
-std::cout << std::endl;
-std::cout << "Executed program succesfully." << std::endl;
+
+// 内存复制
+void CaffeCL::host2gpu(int size, void *gpu_ptr, void*cpu_ptr)
+{
+	cl_int res = clEnqueueWriteBuffer(m_commandQueue, (cl_mem)gpu_ptr, CL_TRUE, 0, size, cpu_ptr, 0, nullptr, nullptr);
+	if (res != CL_SUCCESS)
+	{
+		LOG(FATAL) << "CaffeCL::host2gpu失败" << res;
+	}
 }
-*/
+
+map<string, cl_kernel> CaffeCL::GetKernel(string file)
+{
+	return m_programs[file].kernels;
+}
+
+CaffeCL* CaffeCL::Instance()
+{
+	static CaffeCL* instance = nullptr;
+	if (instance == nullptr)
+	{
+		instance = new CaffeCL();
+	}
+	return instance;
+}
+
+void CaffeCL::Test(cl_kernel kernel)
+{
+	int ARRAY_SIZE = 128;
+	float *a= new float[ARRAY_SIZE];
+	float *b = new float[ARRAY_SIZE];
+	float *res = new float[ARRAY_SIZE];
+	for (int i = 0; i < ARRAY_SIZE; i++)
+	{
+		a[i] = i - 10;
+		b[i] = a[i];
+	}
+
+	cl_mem cl_a = CreateWriteMem(a, ARRAY_SIZE * 4);
+	//cl_mem cl_b = CreateWriteMem(b, ARRAY_SIZE * 4);
+	//cl_mem cl_res = CreateWriteMem(nullptr, ARRAY_SIZE * 4);
+	float f = 0;// new float;
+
+	//*f = 1;
+	cl_int errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &cl_a);
+	errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &cl_a);
+	errNum |= clSetKernelArg(kernel, 2, sizeof(float), &f);
+	if (errNum != CL_SUCCESS)
+	{
+		std::cerr << "Error setting kernel arguments." << std::endl;
+	}
+
+	size_t g[1] = { ARRAY_SIZE };
+	size_t l[1] = { 128 };
+
+	errNum = clEnqueueNDRangeKernel(m_commandQueue, kernel, 1, nullptr, g, l, 0, nullptr, nullptr);
+
+	errNum = clEnqueueReadBuffer(m_commandQueue, cl_a, CL_TRUE,0, ARRAY_SIZE * sizeof(float), res,0, NULL, NULL);
+
+	for (int i = 0; i < ARRAY_SIZE; i++)
+	{
+		std::cout << res[i] << " ";
+	}
+	std::cout << std::endl;
+	std::cout << "Executed program succesfully." << std::endl;
+}
