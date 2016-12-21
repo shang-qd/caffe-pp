@@ -46,19 +46,18 @@ Net<Dtype>::Net(const string& param_file, Phase phase,
 }
 
 template <typename Dtype>
-void Net<Dtype>::Init(const NetParameter& in_param) 
-{
-  CHECK(Caffe::root_solver() || root_net_) << "root_net_ needs to be set for all non-root solvers";
+void Net<Dtype>::Init(const NetParameter& in_param) {
+  CHECK(Caffe::root_solver() || root_net_)
+      << "root_net_ needs to be set for all non-root solvers";
   // Set phase from the state.
   phase_ = in_param.state().phase();
   // Filter layers based on their include/exclude rules and
   // the current NetState.
   NetParameter filtered_param;
   FilterNet(in_param, &filtered_param);
-
-  // 输出网络参数
-  LOG_IF(INFO, Caffe::root_solver()) << "Initializing net from parameters: " << std::endl;
-  LOG_IF(INFO, Caffe::root_solver()) << filtered_param.DebugString();
+  LOG_IF(INFO, Caffe::root_solver())
+      << "Initializing net from parameters: " << std::endl
+      << filtered_param.DebugString();
   // Create a copy of filtered_param with splits added where necessary.
   NetParameter param;
   InsertSplits(filtered_param, &param);
@@ -282,16 +281,6 @@ void Net<Dtype>::Init(const NetParameter& in_param)
   ShareWeights();
   debug_info_ = param.debug_info();
   LOG_IF(INFO, Caffe::root_solver()) << "Network initialization done.";
-}
-
-template <typename Dtype>
-void Net<Dtype>::SetPhase(Phase phase) {
-  // set all layers
-  for (int i = 0; i < layers_.size(); ++i) {
-    layers_[i]->set_phase(phase);
-  }
-  // set net phase
-  phase_ = phase;
 }
 
 template <typename Dtype>
@@ -772,7 +761,7 @@ void Net<Dtype>::CopyTrainedLayersFrom(const NetParameter& param) {
       LOG(INFO) << "Ignoring source layer " << source_layer_name;
       continue;
     }
-    LOG(INFO) << "Copying source layer " << source_layer_name;
+    DLOG(INFO) << "Copying source layer " << source_layer_name;
     vector<shared_ptr<Blob<Dtype> > >& target_blobs =
         layers_[target_layer_id]->blobs();
     CHECK_EQ(target_blobs.size(), source_layer.blobs_size())
@@ -944,6 +933,8 @@ void Net<Dtype>::ClearParamDiffs() {
   for (int i = 0; i < learnable_params_.size(); ++i) {
     Blob<Dtype>* blob = learnable_params_[i];
     switch (Caffe::mode()) {
+    // TODO 鍏堢敤CPU鏂规硶鏇夸唬CL鏂规硶
+    case Caffe::CL:
     case Caffe::CPU:
       caffe_set(blob->count(), static_cast<Dtype>(0),
                 blob->mutable_cpu_diff());

@@ -93,10 +93,6 @@ using std::string;
 using std::stringstream;
 using std::vector;
 
-#ifdef _MSC_VER
-#define snprintf _snprintf
-#endif
-
 // A global initialization function that you should call in your main function.
 // Currently it initializes google flags and google logging.
 void GlobalInit(int* pargc, char*** pargv);
@@ -149,10 +145,7 @@ class Caffe {
   // into the program since that may cause allocation of pinned memory being
   // freed in a non-pinned way, which may cause problems - I haven't verified
   // it personally but better to note it here in the header file.
-  inline static void set_mode(Brew mode) 
-  { 
-	  Get().mode_ = mode; 
-  }
+  inline static void set_mode(Brew mode) { Get().mode_ = mode; }
   // Sets the random seed of both boost and curand
   static void set_random_seed(const unsigned int seed);
   // Sets the device. Since we have cublas and curand stuff, set device also
@@ -167,19 +160,9 @@ class Caffe {
   static int FindDevice(const int start_id = 0);
   // Parallel training info
   inline static int solver_count() { return Get().solver_count_; }
-  // 有几个GPU 就有几个求解器
-  inline static void set_solver_count(int val) 
-  { 
-	  Get().solver_count_ = val; 
-  }
-  inline static bool root_solver() 
-  { 
-	  return Get().root_solver_; 
-  }
-  inline static void set_root_solver(bool val) 
-  { 
-	  Get().root_solver_ = val; 
-  }
+  inline static void set_solver_count(int val) { Get().solver_count_ = val; }
+  inline static bool root_solver() { return Get().root_solver_; }
+  inline static void set_root_solver(bool val) { Get().root_solver_ = val; }
 
  protected:
 #ifndef CPU_ONLY

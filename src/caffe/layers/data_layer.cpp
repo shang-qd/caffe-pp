@@ -14,20 +14,17 @@ namespace caffe {
 template <typename Dtype>
 DataLayer<Dtype>::DataLayer(const LayerParameter& param)
   : BasePrefetchingDataLayer<Dtype>(param),
-    reader_(param) 
-{
-	int shang = 0;
+    reader_(param) {
 }
 
 template <typename Dtype>
-DataLayer<Dtype>::~DataLayer() 
-{
+DataLayer<Dtype>::~DataLayer() {
   this->StopInternalThread();
 }
 
 template <typename Dtype>
-void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) 
-{
+void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
   const int batch_size = this->layer_param_.data_param().batch_size();
   // Read a data point, and use it to initialize the top blob.
   Datum& datum = *(reader_.full().peek());
@@ -38,20 +35,17 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom, const 
   // Reshape top[0] and prefetch_data according to the batch_size.
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
-  for (int i = 0; i < this->PREFETCH_COUNT; ++i) 
-  {
+  for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
     this->prefetch_[i].data_.Reshape(top_shape);
   }
   LOG(INFO) << "output data size: " << top[0]->num() << ","
       << top[0]->channels() << "," << top[0]->height() << ","
       << top[0]->width();
   // label
-  if (this->output_labels_) 
-  {
+  if (this->output_labels_) {
     vector<int> label_shape(1, batch_size);
     top[1]->Reshape(label_shape);
-    for (int i = 0; i < this->PREFETCH_COUNT; ++i)
-	{
+    for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
       this->prefetch_[i].label_.Reshape(label_shape);
     }
   }
@@ -59,8 +53,7 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom, const 
 
 // This function is called on prefetch thread
 template<typename Dtype>
-void DataLayer<Dtype>::load_batch(Batch<Dtype>* batch) 
-{
+void DataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
   CPUTimer batch_timer;
   batch_timer.Start();
   double read_time = 0;

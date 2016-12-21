@@ -98,7 +98,6 @@ const Dtype* Blob<Dtype>::gpu_data() const {
   return (const Dtype*)data_->gpu_data();
 }
 
-
 template <typename Dtype>
 const Dtype* Blob<Dtype>::cpu_diff() const {
   CHECK(diff_);
@@ -110,7 +109,6 @@ const Dtype* Blob<Dtype>::gpu_diff() const {
   CHECK(diff_);
   return (const Dtype*)diff_->gpu_data();
 }
-
 
 template <typename Dtype>
 Dtype* Blob<Dtype>::mutable_cpu_data() {

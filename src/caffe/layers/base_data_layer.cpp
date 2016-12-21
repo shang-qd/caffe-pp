@@ -33,14 +33,13 @@ void BaseDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 }
 
 template <typename Dtype>
-BasePrefetchingDataLayer<Dtype>::BasePrefetchingDataLayer(const LayerParameter& param)
-    : BaseDataLayer<Dtype>(param), prefetch_free_(), prefetch_full_() 
-{
-
-	for (int i = 0; i < PREFETCH_COUNT; ++i) 
-	{
-		prefetch_free_.push(&prefetch_[i]);
-	}
+BasePrefetchingDataLayer<Dtype>::BasePrefetchingDataLayer(
+    const LayerParameter& param)
+    : BaseDataLayer<Dtype>(param),
+      prefetch_free_(), prefetch_full_() {
+  for (int i = 0; i < PREFETCH_COUNT; ++i) {
+    prefetch_free_.push(&prefetch_[i]);
+  }
 }
 
 template <typename Dtype>

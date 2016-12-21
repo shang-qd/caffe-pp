@@ -28,8 +28,7 @@ SolverAction::Enum Solver<Dtype>::GetRequestedAction() {
 template <typename Dtype>
 Solver<Dtype>::Solver(const SolverParameter& param, const Solver* root_solver)
     : net_(), callbacks_(), root_solver_(root_solver),
-      requested_early_exit_(false) 
-{
+      requested_early_exit_(false) {
   Init(param);
 }
 
@@ -43,23 +42,20 @@ Solver<Dtype>::Solver(const string& param_file, const Solver* root_solver)
 }
 
 template <typename Dtype>
-void Solver<Dtype>::Init(const SolverParameter& param) 
-{
-  CHECK(Caffe::root_solver() || root_solver_) << "root_solver_ needs to be set for all non-root solvers";
-  LOG_IF(INFO, Caffe::root_solver()) << "Initializing solver from parameters: " << std::endl;
-  LOG_IF(INFO, Caffe::root_solver()) << param.DebugString();
-
+void Solver<Dtype>::Init(const SolverParameter& param) {
+  CHECK(Caffe::root_solver() || root_solver_)
+      << "root_solver_ needs to be set for all non-root solvers";
+  LOG_IF(INFO, Caffe::root_solver()) << "Initializing solver from parameters: "
+    << std::endl << param.DebugString();
   param_ = param;
   CHECK_GE(param_.average_loss(), 1) << "average_loss should be non-negative.";
   CheckSnapshotWritePermissions();
-  if (Caffe::root_solver() && param_.random_seed() >= 0)
-  {
+  if (Caffe::root_solver() && param_.random_seed() >= 0) {
     Caffe::set_random_seed(param_.random_seed());
   }
   // Scaffolding code
   InitTrainNet();
-  if (Caffe::root_solver()) 
-  {
+  if (Caffe::root_solver()) {
     InitTestNets();
     LOG(INFO) << "Solver scaffolding done.";
   }
@@ -105,12 +101,9 @@ void Solver<Dtype>::InitTrainNet() {
   net_state.MergeFrom(net_param.state());
   net_state.MergeFrom(param_.train_state());
   net_param.mutable_state()->CopyFrom(net_state);
-  if (Caffe::root_solver()) 
-  {
+  if (Caffe::root_solver()) {
     net_.reset(new Net<Dtype>(net_param));
-  } 
-  else 
-  {
+  } else {
     net_.reset(new Net<Dtype>(net_param, root_solver_->net_.get()));
   }
 }

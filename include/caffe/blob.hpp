@@ -226,7 +226,6 @@ class Blob {
   Dtype* mutable_gpu_data();
   Dtype* mutable_cpu_diff();
   Dtype* mutable_gpu_diff();
-
   void Update();
   void FromProto(const BlobProto& proto, bool reshape = true);
   void ToProto(BlobProto* proto, bool write_diff = false) const;
@@ -267,13 +266,9 @@ class Blob {
   bool ShapeEquals(const BlobProto& other);
 
  protected:
-	// 基本数据
   shared_ptr<SyncedMemory> data_;
-	// 梯度数据
   shared_ptr<SyncedMemory> diff_;
-	// 形状数据CPU，GPU共同使用
   shared_ptr<SyncedMemory> shape_data_;
-  // 形状数据CPU专用，效率高
   vector<int> shape_;
   int count_;
   int capacity_;

@@ -14,8 +14,6 @@ namespace bp = boost::python;
 #include "boost/algorithm/string.hpp"
 #include "caffe/caffe.hpp"
 #include "caffe/util/signal_handler.h"
-#include <chrono>
-#include <thread>
 
 using caffe::Blob;
 using caffe::Caffe;
@@ -176,13 +174,10 @@ caffe::SolverAction::Enum GetRequestedAction(
     return caffe::SolverAction::NONE;
   }
   LOG(FATAL) << "Invalid signal effect \""<< flag_value << "\" was specified";
-  return caffe::SolverAction::NONE;
 }
 
 // Train / Finetune a model.
-int train() 
-{
-	//std::this_thread::sleep_for(std::chrono::minutes(1));
+int train() {
   CHECK_GT(FLAGS_solver.size(), 0) << "Need a solver definition to train.";
   CHECK(!FLAGS_snapshot.size() || !FLAGS_weights.size())
       << "Give a snapshot to resume training or weights to finetune "
@@ -193,39 +188,30 @@ int train()
   caffe::ReadSolverParamsFromTextFileOrDie(FLAGS_solver, &solver_param);
 
   solver_param.mutable_train_state()->set_level(FLAGS_level);
-  for (int i = 0; i < stages.size(); i++) 
-  {
-		solver_param.mutable_train_state()->add_stage(stages[i]);
+  for (int i = 0; i < stages.size(); i++) {
+    solver_param.mutable_train_state()->add_stage(stages[i]);
   }
 
   // If the gpus flag is not provided, allow the mode and device to be set
   // in the solver prototxt.
   if (FLAGS_gpu.size() == 0
-      && solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU) 
-  {
-      if (solver_param.has_device_id()) 
-	  {
+      && solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU) {
+      if (solver_param.has_device_id()) {
           FLAGS_gpu = "" +
               boost::lexical_cast<string>(solver_param.device_id());
-      } 
-	  else 
-	  {  // Set default GPU if unspecified
+      } else {  // Set default GPU if unspecified
           FLAGS_gpu = "" + boost::lexical_cast<string>(0);
       }
   }
 
   vector<int> gpus;
   get_gpus(&gpus);
-  if (gpus.size() == 0) 
-  {
+  if (gpus.size() == 0) {
     LOG(INFO) << "Use CPU.";
     Caffe::set_mode(Caffe::CPU);
-  } 
-  else 
-  {
+  } else {
     ostringstream s;
-    for (int i = 0; i < gpus.size(); ++i)
-	{
+    for (int i = 0; i < gpus.size(); ++i) {
       s << (i ? ", " : "") << gpus[i];
     }
     LOG(INFO) << "Using GPUs " << s.str();
@@ -242,39 +228,31 @@ int train()
     Caffe::set_solver_count(gpus.size());
   }
 
-  if (solver_param.solver_mode() == caffe::SolverParameter_SolverMode::SolverParameter_SolverMode_CL)
-  {
-	  Caffe::set_mode(Caffe::CL);
-  }
+  if (solver_param.solver_mode() == caffe::SolverParameter_SolverMode_CL){
+  	  Caffe::set_mode(Caffe::CL);
+   }
+  caffe::SignalHandler signal_handler(
+        GetRequestedAction(FLAGS_sigint_effect),
+        GetRequestedAction(FLAGS_sighup_effect));
 
-  caffe::SignalHandler signal_handler(GetRequestedAction(FLAGS_sigint_effect),GetRequestedAction(FLAGS_sighup_effect));
+  shared_ptr<caffe::Solver<float> >
+      solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
-  // 创建求解器,在函数中完成了很多网络初始化的工作，支持泛型
-  caffe::Solver<float> *p_solver = caffe::SolverRegistry<float>::CreateSolver(solver_param);
-  
-  boost::shared_ptr<caffe::Solver<float>> solver(p_solver);
   solver->SetActionFunction(signal_handler.GetActionFunction());
 
-  if (FLAGS_snapshot.size()) 
-  {
+  if (FLAGS_snapshot.size()) {
     LOG(INFO) << "Resuming from " << FLAGS_snapshot;
     solver->Restore(FLAGS_snapshot.c_str());
-  } 
-  else if (FLAGS_weights.size()) 
-  {
+  } else if (FLAGS_weights.size()) {
     CopyLayers(solver.get(), FLAGS_weights);
   }
 
-  if (gpus.size() > 1)
-  {
+  if (gpus.size() > 1) {
     caffe::P2PSync<float> sync(solver, NULL, solver->param());
     sync.Run(gpus);
-  }
-  else
-  {
-		// 开始优化
-		LOG(INFO) << "Starting Optimization";
-		solver->Solve();
+  } else {
+    LOG(INFO) << "Starting Optimization";
+    solver->Solve();
   }
   LOG(INFO) << "Optimization Done.";
   return 0;
@@ -386,7 +364,7 @@ int time() {
   LOG(INFO) << "Performing Backward";
   caffe_net.Backward();
 
-  const vector<boost::shared_ptr<Layer<float> > >& layers = caffe_net.layers();
+  const vector<shared_ptr<Layer<float> > >& layers = caffe_net.layers();
   const vector<vector<Blob<float>*> >& bottom_vecs = caffe_net.bottom_vecs();
   const vector<vector<Blob<float>*> >& top_vecs = caffe_net.top_vecs();
   const vector<vector<bool> >& bottom_need_backward =
@@ -446,12 +424,7 @@ int time() {
 }
 RegisterBrewFunction(time);
 
-
-int main(int argc, char** argv) 
-{
-	LOG(INFO) << "产生日志";
-	LOG(FATAL) << "要产生故障了";
-	
+int main(int argc, char** argv) {
   // Print output to stderr (while still logging).
   FLAGS_alsologtostderr = 1;
   // Set version

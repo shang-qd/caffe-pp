@@ -26,10 +26,10 @@ class DataReader {
   ~DataReader();
 
   inline BlockingQueue<Datum*>& free() const {
-	  return queue_pair_->free_;
+    return queue_pair_->free_;
   }
   inline BlockingQueue<Datum*>& full() const {
-	  return queue_pair_->full_;
+    return queue_pair_->full_;
   }
 
  protected:

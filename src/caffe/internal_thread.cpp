@@ -18,10 +18,7 @@ bool InternalThread::must_stop() {
   return thread_ && thread_->interruption_requested();
 }
 
-void InternalThread::StartInternalThread() 
-{
-	static int c = 1;
-	printf("线程开始 =====================>>>>>>>>>>>>>>>>>>>>>>>>>>>> %d \n", c++);
+void InternalThread::StartInternalThread() {
   CHECK(!is_started()) << "Threads should persist and not be restarted.";
 
   int device = 0;
@@ -41,8 +38,8 @@ void InternalThread::StartInternalThread()
   }
 }
 
-void InternalThread::entry(int device, Caffe::Brew mode, int rand_seed, int solver_count, bool root_solver) 
-{
+void InternalThread::entry(int device, Caffe::Brew mode, int rand_seed,
+    int solver_count, bool root_solver) {
 #ifndef CPU_ONLY
   CUDA_CHECK(cudaSetDevice(device));
 #endif

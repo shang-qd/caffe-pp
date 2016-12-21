@@ -121,12 +121,8 @@ void SGDSolver<Dtype>::Normalize(int param_id) {
   // Scale gradient to counterbalance accumulation.
   const vector<Blob<Dtype>*>& net_params = this->net_->learnable_params();
   const Dtype accum_normalization = Dtype(1.) / this->param_.iter_size();
-  switch (Caffe::mode()) 
-  {
-	  //TODO 需OpenCL实现
-  case Caffe::CL:
-  case Caffe::CPU: 
-  {
+  switch (Caffe::mode()) {
+  case Caffe::CPU: {
     caffe_scal(net_params[param_id]->count(), accum_normalization,
         net_params[param_id]->mutable_cpu_diff());
     break;
@@ -153,16 +149,12 @@ void SGDSolver<Dtype>::Regularize(int param_id) {
   Dtype weight_decay = this->param_.weight_decay();
   string regularization_type = this->param_.regularization_type();
   Dtype local_decay = weight_decay * net_params_weight_decay[param_id];
-  switch (Caffe::mode()) 
-  {
-	  // TODO 需要openCL实现
+  switch (Caffe::mode()) {
+  // TODO 鍏堢敤CPU鏂规硶鏇夸唬CL鏂规硶
   case Caffe::CL:
-  case Caffe::CPU: 
-  {
-    if (local_decay) 
-	{
-      if (regularization_type == "L2") 
-	  {
+  case Caffe::CPU: {
+    if (local_decay) {
+      if (regularization_type == "L2") {
         // add weight decay
         caffe_axpy(net_params[param_id]->count(),
             local_decay,
@@ -226,12 +218,10 @@ void SGDSolver<Dtype>::ComputeUpdateValue(int param_id, Dtype rate) {
   Dtype momentum = this->param_.momentum();
   Dtype local_rate = rate * net_params_lr[param_id];
   // Compute the update to history, then copy it to the parameter diff.
-  switch (Caffe::mode()) 
-  {
-	  //TODO 需要OpenCL实现
+  switch (Caffe::mode()) {
+  // TODO 鍏堢敤CPU鏂规硶鏇夸唬CL鏂规硶
   case Caffe::CL:
-  case Caffe::CPU: 
-  {
+  case Caffe::CPU: {
     caffe_cpu_axpby(net_params[param_id]->count(), local_rate,
               net_params[param_id]->cpu_diff(), momentum,
               history_[param_id]->mutable_cpu_data());

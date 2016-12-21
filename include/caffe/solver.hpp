@@ -12,7 +12,7 @@ namespace caffe {
 /**
   * @brief Enumeration of actions that a client of the Solver may request by
   * implementing the Solver's action request function, which a
-  * a client may optionally provide in order to request early termination
+  * client may optionally provide in order to request early termination
   * or saving a snapshot without exiting. In the executable caffe, this
   * mechanism is used to allow the snapshot to be saved when stopping
   * execution with a SIGINT (Ctrl-C).
@@ -38,10 +38,10 @@ typedef boost::function<SolverAction::Enum()> ActionCallback;
  * given the current state of the Net parameters.
  */
 template <typename Dtype>
-class Solver 
-{
+class Solver {
  public:
-  explicit Solver(const SolverParameter& param,const Solver* root_solver = NULL);
+  explicit Solver(const SolverParameter& param,
+      const Solver* root_solver = NULL);
   explicit Solver(const string& param_file, const Solver* root_solver = NULL);
   void Init(const SolverParameter& param);
   void InitTrainNet();
@@ -69,23 +69,13 @@ class Solver
   virtual ~Solver() {}
   inline const SolverParameter& param() const { return param_; }
   inline shared_ptr<Net<Dtype> > net() { return net_; }
-  inline const vector<shared_ptr<Net<Dtype> > >& test_nets() 
-  {
+  inline const vector<shared_ptr<Net<Dtype> > >& test_nets() {
     return test_nets_;
   }
-  int iter() 
-  { 
-	  return iter_; 
-  }
-
-  int max_iter() const 
-  { 
-	  return param_.max_iter(); 
-  }
+  int iter() { return iter_; }
 
   // Invoked at specific points during an iteration
-  class Callback 
-  {
+  class Callback {
    protected:
     virtual void on_start() = 0;
     virtual void on_gradients_ready() = 0;
@@ -93,13 +83,9 @@ class Solver
     template <typename T>
     friend class Solver;
   };
-  const vector<Callback*>& callbacks() const 
-  { 
-	  return callbacks_; 
-  }
-  void add_callback(Callback* value) 
-  {
-		callbacks_.push_back(value);
+  const vector<Callback*>& callbacks() const { return callbacks_; }
+  void add_callback(Callback* value) {
+    callbacks_.push_back(value);
   }
 
   void CheckSnapshotWritePermissions();
@@ -123,34 +109,24 @@ class Solver
   void DisplayOutputBlobs(const int net_id);
   void UpdateSmoothedLoss(Dtype loss, int start_iter, int average_loss);
 
-  // 保存模型使用
   SolverParameter param_;
-  // 迭代次数
   int iter_;
-  // 步长
   int current_step_;
-  // 训练网络
   shared_ptr<Net<Dtype> > net_;
-	// 测试网路
   vector<shared_ptr<Net<Dtype> > > test_nets_;
-  //回调函数
   vector<Callback*> callbacks_;
-  // 计算平滑需要的数据容器
   vector<Dtype> losses_;
-  // 平滑损失
   Dtype smoothed_loss_;
 
   // The root solver that holds root nets (actually containing shared layers)
   // in data parallelism
-  // 多GPU训练的时候使用这个参数
   const Solver* const root_solver_;
 
   // A function that can be set by a client of the Solver to provide indication
   // that it wants a snapshot saved and/or to exit early.
-  // 控制退出标志的请求回调句柄
   ActionCallback action_request_function_;
 
-  //  
+  // True iff a request to stop early was received.
   bool requested_early_exit_;
 
   DISABLE_COPY_AND_ASSIGN(Solver);
@@ -161,24 +137,21 @@ class Solver
  *        for multi-GPU training.
  */
 template <typename Dtype>
-class WorkerSolver : public Solver<Dtype> 
-{
+class WorkerSolver : public Solver<Dtype> {
  public:
-  explicit WorkerSolver(const SolverParameter& param,const Solver<Dtype>* root_solver = NULL)
+  explicit WorkerSolver(const SolverParameter& param,
+      const Solver<Dtype>* root_solver = NULL)
       : Solver<Dtype>(param, root_solver) {}
 
  protected:
   void ApplyUpdate() {}
-  void SnapshotSolverState(const string& model_filename) 
-  {
+  void SnapshotSolverState(const string& model_filename) {
     LOG(FATAL) << "Should not be called on worker solver.";
   }
-  void RestoreSolverStateFromBinaryProto(const string& state_file)
-  {
+  void RestoreSolverStateFromBinaryProto(const string& state_file) {
     LOG(FATAL) << "Should not be called on worker solver.";
   }
-  void RestoreSolverStateFromHDF5(const string& state_file) 
-  {
+  void RestoreSolverStateFromHDF5(const string& state_file) {
     LOG(FATAL) << "Should not be called on worker solver.";
   }
 };

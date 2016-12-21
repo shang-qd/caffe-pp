@@ -15,7 +15,7 @@
  * and its type is its C++ class name, but without the "Solver" at the end
  * ("MyAwesomeSolver" -> "MyAwesome").
  *
- * If the solver is going to be created simply by its constructor, in your c++
+ * If the solver is going to be created simply by its constructor, in your C++
  * file, add the following line:
  *
  *    REGISTER_SOLVER_CLASS(MyAwesome);
@@ -75,8 +75,7 @@ class SolverRegistry {
     CreatorRegistry& registry = Registry();
     CHECK_EQ(registry.count(type), 1) << "Unknown solver type: " << type
         << " (known types: " << SolverTypeListString() << ")";
-	auto r = registry[type];
-    return r(param);
+    return registry[type](param);
   }
 
   static vector<string> SolverTypeList() {

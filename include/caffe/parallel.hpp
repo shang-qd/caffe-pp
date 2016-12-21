@@ -14,8 +14,6 @@
 #include "caffe/syncedmem.hpp"
 #include "caffe/util/blocking_queue.hpp"
 
-// 并行计算相关的内容
-
 namespace caffe {
 
 // Represents a net parameters. Once a net is created, its parameter buffers can

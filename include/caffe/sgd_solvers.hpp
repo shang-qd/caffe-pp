@@ -15,10 +15,8 @@ namespace caffe {
 template <typename Dtype>
 class SGDSolver : public Solver<Dtype> {
  public:
-  explicit SGDSolver(const SolverParameter& param) : Solver<Dtype>(param) 
-  { 
-	  PreSolve(); 
-  }
+  explicit SGDSolver(const SolverParameter& param)
+      : Solver<Dtype>(param) { PreSolve(); }
   explicit SGDSolver(const string& param_file)
       : Solver<Dtype>(param_file) { PreSolve(); }
   virtual inline const char* type() const { return "SGD"; }

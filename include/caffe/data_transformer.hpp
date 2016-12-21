@@ -7,8 +7,6 @@
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
 
-// Êý¾Ý×ª»»
-
 namespace caffe {
 
 /**

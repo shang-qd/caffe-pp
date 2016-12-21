@@ -18,9 +18,7 @@ namespace caffe {
  */
 class InternalThread {
  public:
-  InternalThread() : thread_() 
-  {
-  }
+  InternalThread() : thread_() {}
   virtual ~InternalThread();
 
   /**
