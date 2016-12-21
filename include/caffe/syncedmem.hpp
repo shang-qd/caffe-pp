@@ -1,3 +1,11 @@
+/**
+ *  增加caffe对OpenCL的支持，这个支持跟是否有GPU无关
+ *  因为很多CPU也同样支持OpenCL. CUDA和OpenCL不能同时使用.
+ *  无论在编译的时候是否使用了CPU_ONLY依然表示支持OpenCL.
+ *  目前的版本仅支持单GPU
+ *  修改作者：尚庆东,邮箱：shang_qd@qq.com
+ */
+
 #ifndef CAFFE_SYNCEDMEM_HPP_
 #define CAFFE_SYNCEDMEM_HPP_
 
@@ -7,34 +15,53 @@
 
 namespace caffe {
 
-// If CUDA is available and in GPU mode, host memory will be allocated pinned,
-// using cudaMallocHost. It avoids dynamic pinning for transfers (DMA).
-// The improvement in performance seems negligible in the single GPU case,
-// but might be more significant for parallel training. Most importantly,
-// it improved stability for large models on many GPUs.
-inline void CaffeMallocHost(void** ptr, size_t size, bool* use_cuda) {
+	// If CUDA is available and in GPU mode, host memory will be allocated pinned,
+	// using cudaMallocHost. It avoids dynamic pinning for transfers (DMA).
+	// The improvement in performance seems negligible in the single GPU case,
+	// but might be more significant for parallel training. Most importantly,
+	// it improved stability for large models on many GPUs.
+	// TODO 不知道CL是否有锁页内存 因此free,malloc 方式申请内存，且cpu_malloc_use_cuda_永远都是false
+	inline void CaffeMallocHost(void** ptr, size_t size, bool* use_cuda)
+	{
+		if (Caffe::mode() == Caffe::CL)
+		{
+			*ptr = malloc(size);
+			*use_cuda = false;
+			CHECK(*ptr) << "host allocation of size " << size << " failed";
+		}
+		else
+		{
 #ifndef CPU_ONLY
-  if (Caffe::mode() == Caffe::GPU) {
-    CUDA_CHECK(cudaMallocHost(ptr, size));
-    *use_cuda = true;
-    return;
-  }
+			if (Caffe::mode() == Caffe::GPU) {
+				CUDA_CHECK(cudaMallocHost(ptr, size));
+				*use_cuda = true;
+				return;
+			}
 #endif
-  *ptr = malloc(size);
-  *use_cuda = false;
-  CHECK(*ptr) << "host allocation of size " << size << " failed";
-}
+			*ptr = malloc(size);
+			*use_cuda = false;
+			CHECK(*ptr) << "host allocation of size " << size << " failed";
+		}
+	}
 
-inline void CaffeFreeHost(void* ptr, bool use_cuda) {
+	// 如果是OpenCL模式,使用free,malloc 方式申请内存，且cpu_malloc_use_cuda_永远都是false
+	inline void CaffeFreeHost(void* ptr, bool use_cuda)
+	{
+		if (Caffe::mode() == Caffe::CL)
+		{
+			free(ptr);
+		}
+		else
+		{
 #ifndef CPU_ONLY
-  if (use_cuda) {
-    CUDA_CHECK(cudaFreeHost(ptr));
-    return;
-  }
+			if (use_cuda) {
+				CUDA_CHECK(cudaFreeHost(ptr));
+				return;
+			}
 #endif
-  free(ptr);
-}
-
+			free(ptr);
+		}
+	}
 
 /**
  * @brief Manages memory allocation and synchronization between the host (CPU)

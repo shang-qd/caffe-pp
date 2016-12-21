@@ -67,6 +67,9 @@ class BasePrefetchingDataLayer :
   virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
 
+  virtual void Forward_cl(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top);
+
   // Prefetches batches (asynchronously if to GPU memory)
   static const int PREFETCH_COUNT = 3;
 

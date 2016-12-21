@@ -178,7 +178,7 @@ ifneq ($(CPU_ONLY), 1)
 	LIBRARIES := cudart cublas curand
 endif
 
-LIBRARIES += glog gflags protobuf boost_system boost_filesystem m hdf5_serial_hl hdf5_serial
+LIBRARIES += glog gflags protobuf boost_system boost_filesystem m hdf5_serial_hl hdf5_serial OpenCL
 
 # handle IO dependencies
 USE_LEVELDB ?= 1
@@ -405,7 +405,7 @@ CXXFLAGS += -MMD -MP
 
 # Complete build flags.
 COMMON_FLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
-CXXFLAGS += -pthread -fPIC $(COMMON_FLAGS) $(WARNINGS)
+CXXFLAGS += -std=c++11 -pthread -fPIC $(COMMON_FLAGS) $(WARNINGS)
 NVCCFLAGS += -ccbin=$(CXX) -Xcompiler -fPIC $(COMMON_FLAGS)
 # mex may invoke an older gcc that is too liberal with -Wuninitalized
 MATLAB_CXXFLAGS := $(CXXFLAGS) -Wno-uninitialized

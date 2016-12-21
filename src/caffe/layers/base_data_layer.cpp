@@ -9,6 +9,8 @@
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/blocking_queue.hpp"
 
+#include "caffe/util/math_functions_cl.hpp"
+
 namespace caffe {
 
 template <typename Dtype>
@@ -119,6 +121,27 @@ void BasePrefetchingDataLayer<Dtype>::Forward_cpu(
     // Copy the labels.
     caffe_copy(batch->label_.count(), batch->label_.cpu_data(),
         top[1]->mutable_cpu_data());
+  }
+
+  prefetch_free_.push(batch);
+}
+
+template <typename Dtype>
+void BasePrefetchingDataLayer<Dtype>::Forward_cl(
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  Batch<Dtype>* batch = prefetch_full_.pop("Data layer prefetch queue empty");
+  // Reshape to loaded data.
+  top[0]->ReshapeLike(batch->data_);
+  // Copy the data
+  math_cl::Caffe_Copy(batch->data_.count(), (float*)batch->data_.gpu_data(),
+		  (float*)top[0]->mutable_gpu_data());
+  DLOG(INFO) << "Prefetch copied";
+  if (this->output_labels_) {
+    // Reshape to loaded labels.
+    top[1]->ReshapeLike(batch->label_);
+    // Copy the labels.
+    math_cl::Caffe_Copy(batch->label_.count(), (float*)batch->label_.gpu_data(),
+    		(float*)top[1]->mutable_gpu_data());
   }
 
   prefetch_free_.push(batch);
