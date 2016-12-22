@@ -133,15 +133,15 @@ void BasePrefetchingDataLayer<Dtype>::Forward_cl(
   // Reshape to loaded data.
   top[0]->ReshapeLike(batch->data_);
   // Copy the data
-  math_cl::Caffe_Copy(batch->data_.count(), (float*)batch->data_.gpu_data(),
-		  (float*)top[0]->mutable_gpu_data());
+  math_cl::caffe_copy(batch->data_.count(), batch->data_.gpu_data(),
+		  top[0]->mutable_gpu_data());
   DLOG(INFO) << "Prefetch copied";
   if (this->output_labels_) {
     // Reshape to loaded labels.
     top[1]->ReshapeLike(batch->label_);
     // Copy the labels.
-    math_cl::Caffe_Copy(batch->label_.count(), (float*)batch->label_.gpu_data(),
-    		(float*)top[1]->mutable_gpu_data());
+    math_cl::caffe_copy(batch->label_.count(), batch->label_.gpu_data(),
+    		top[1]->mutable_gpu_data());
   }
 
   prefetch_free_.push(batch);
