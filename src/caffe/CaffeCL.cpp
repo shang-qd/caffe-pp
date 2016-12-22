@@ -29,7 +29,7 @@ CaffeCL::CaffeCL() : m_context(nullptr), m_commandQueue(nullptr), m_device(nullp
 
 bool CaffeCL::Init()
 {
-	std::vector<std::string> kn = { "Caffe_Copy" };
+	std::vector<std::string> kn = { "caffe_copy", "im2col" };
 	CreateProgram(cl_file,kn);
 	return true;
 }
@@ -297,4 +297,13 @@ void CaffeCL::Test(cl_kernel kernel)
 	std::cout << std::endl;
 	std::cout << "Executed program succesfully." << std::endl;
 	*/
+}
+
+
+void im2col_nd_gpu_kernel(const int num_axes,const int n, const float* data_im,
+    const int* im_shape, const int* col_shape,
+    const int* kernel_shape, const int* pad, const int* stride,
+    const int* dilation, float* data_col)
+{
+
 }
