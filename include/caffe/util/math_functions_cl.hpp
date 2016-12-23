@@ -16,14 +16,14 @@ void caffe_copy(const int N, const Dtype* X, Dtype* Y);
 template <typename Dtype>
 void caffe_cl_gemm(const clblasTranspose TransA,
     const clblasTranspose TransB, const int M, const int N, const int K,
-    const Dtype alpha, const Dtype* A, const Dtype* B, const Dtype beta,
-    Dtype* C);
+    const Dtype alpha, const Dtype* A,size_t offA, const Dtype* B,size_t offB,
+	const Dtype beta, Dtype* C,size_t offC);
 
 
 template <typename Dtype>
 void caffe_cl_gemv(const clblasTranspose TransA, const int M, const int N,
-    const Dtype alpha, const Dtype* A, const Dtype* x, const Dtype beta,
-    Dtype* y);
+    const Dtype alpha, const Dtype* A,size_t offA, const Dtype* x,size_t offX, const Dtype beta,
+    Dtype* y,size_t offY);
 };
 
 #endif

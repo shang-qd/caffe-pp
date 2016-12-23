@@ -233,96 +233,48 @@ template void col2im_nd_cpu<double>(const double* data_col,
 
 
 template <typename Dtype>
-void im2col_nd_cl(const Dtype* data_im, const int num_spatial_axes,
+void im2col_nd_cl(const Dtype* data_im,int off_im, const int num_spatial_axes,
     const int col_size, const int* im_shape, const int* col_shape,
     const int* kernel_shape, const int* pad, const int* stride,
     const int* dilation, Dtype* data_col)
 {
+	if (num_spatial_axes > 10) {
+		LOG(FATAL) << "im2col_nd does not support computation with "
+			               << num_spatial_axes << " spatial axes";
+	}
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["im2col_nd"];
+	clSetKernelArg(kernel, 0, sizeof(int), &num_spatial_axes);
+	clSetKernelArg(kernel, 1, sizeof(int), &col_size);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &data_im);
+	clSetKernelArg(kernel, 3, sizeof(int), &off_im);
+	clSetKernelArg(kernel, 4, sizeof(cl_mem), &im_shape);
+	clSetKernelArg(kernel, 5, sizeof(cl_mem), &col_shape);
+	clSetKernelArg(kernel, 6, sizeof(cl_mem), &kernel_shape);
+	clSetKernelArg(kernel, 7, sizeof(cl_mem), &pad);
+	clSetKernelArg(kernel, 8, sizeof(cl_mem), &stride);
+	clSetKernelArg(kernel, 9, sizeof(cl_mem), &dilation);
+	clSetKernelArg(kernel, 10, sizeof(cl_mem), &data_col);
 
-	throw "abc";
-	// num_axes should be smaller than block size
-	//DCHECK_LT(num_spatial_axes, CAFFE_CUDA_NUM_THREADS);
-	switch (num_spatial_axes) {
-	  case 1:
-	    //im2col_nd_gpu_kernel<Dtype, 1>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 2:
-	    //im2col_nd_gpu_kernel<Dtype, 2>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 3:
-	    //im2col_nd_gpu_kernel<Dtype, 3>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 4:
-	    //im2col_nd_gpu_kernel<Dtype, 4>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 5:
-	    //im2col_nd_gpu_kernel<Dtype, 5>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 6:
-	    //im2col_nd_gpu_kernel<Dtype, 6>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 7:
-	    //im2col_nd_gpu_kernel<Dtype, 7>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 8:
-	    //im2col_nd_gpu_kernel<Dtype, 8>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 9:
-	    //im2col_nd_gpu_kernel<Dtype, 9>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  case 10:
-	    //im2col_nd_gpu_kernel<Dtype, 10>  // NOLINT_NEXT_LINE(whitespace/operators)
-	    //    <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
-	    //    num_kernels, data_im, im_shape, col_shape,
-	    //    kernel_shape, pad, stride, dilation, data_col);
-	    break;
-	  default:
-	    LOG(FATAL) << "im2col_nd_gpu does not support computation with "
-	               << num_spatial_axes << " spatial axes";
-	  }
-	  //CUDA_POST_KERNEL_CHECK;
+	size_t g[1] = { (size_t)col_size };
+	size_t l[1];
+	l[0] = col_size > 128 ? 128 : 1;
+	cl->ExecKernel(kernel, 1, g, l);
 }
 
 
-template void im2col_nd_cl<float>(const float* data_im, const int num_spatial_axes,
+template void im2col_nd_cl<float>(const float* data_im,int off_im, const int num_spatial_axes,
     const int col_size, const int* im_shape, const int* col_shape,
     const int* kernel_shape, const int* pad, const int* stride,
     const int* dilation, float* data_col);
 
-template void im2col_nd_cl<double>(const double* data_im, const int num_spatial_axes,
+template void im2col_nd_cl<double>(const double* data_im,int off_im, const int num_spatial_axes,
     const int col_size, const int* im_shape, const int* col_shape,
     const int* kernel_shape, const int* pad, const int* stride,
     const int* dilation, double* data_col);
 
 template <typename Dtype>
-void im2col_cl(const Dtype* data_im, const int channels,
+void im2col_cl(const Dtype* data_im,int off_im, const int channels,
     const int height, const int width, const int kernel_h, const int kernel_w,
     const int pad_h, const int pad_w, const int stride_h,
     const int stride_w, const int dilation_h, const int dilation_w,
@@ -333,26 +285,104 @@ void im2col_cl(const Dtype* data_im, const int channels,
 	int width_col = (width + 2 * pad_w -
 	      (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
 	int num_kernels = channels * height_col * width_col;
-	  // NOLINT_NEXT_LINE(whitespace/operators)
-	  //im2col_gpu_kernel<Dtype><<<CAFFE_GET_BLOCKS(num_kernels),
-	  //                           CAFFE_CUDA_NUM_THREADS>>>(
-	  //    num_kernels, data_im, height, width, kernel_h, kernel_w, pad_h,
-	  //    pad_w, stride_h, stride_w, dilation_h, dilation_w, height_col,
-	  //    width_col, data_col);
-	  //CUDA_POST_KERNEL_CHECK;
 
-	/*const int n, const float* data_im,
-    const int height, const int width, const int kernel_h, const int kernel_w,
-    const int pad_h, const int pad_w,
-    const int stride_h, const int stride_w,
-    const int dilation_h, const int dilation_w,
-    const int height_col, const int width_col,
-    float* data_col*/
 
 	CaffeCL *cl = CaffeCL::Instance();
 	cl_kernel kernel = cl->GetKernel(cl_file)["im2col"];
 	clSetKernelArg(kernel, 0, sizeof(int), &num_kernels);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), &data_im);
+	clSetKernelArg(kernel, 2, sizeof(int), &off_im);
+	clSetKernelArg(kernel, 3, sizeof(int), &height);
+	clSetKernelArg(kernel, 4, sizeof(int), &width);
+	clSetKernelArg(kernel, 5, sizeof(int), &kernel_h);
+	clSetKernelArg(kernel, 6, sizeof(int), &kernel_w);
+	clSetKernelArg(kernel, 7, sizeof(int), &pad_h);
+	clSetKernelArg(kernel, 8, sizeof(int), &pad_w);
+	clSetKernelArg(kernel, 9, sizeof(int), &stride_h);
+	clSetKernelArg(kernel, 10, sizeof(int), &stride_w);
+	clSetKernelArg(kernel, 11, sizeof(int), &dilation_h);
+	clSetKernelArg(kernel, 12, sizeof(int), &dilation_w);
+	clSetKernelArg(kernel, 13, sizeof(int), &height_col);
+	clSetKernelArg(kernel, 14, sizeof(int), &width_col);
+	clSetKernelArg(kernel, 15, sizeof(cl_mem), &data_col);
+
+	size_t g[1] = { (size_t)num_kernels };
+	size_t l[1];
+	l[0] = num_kernels > 128 ? 128 : 1;
+	cl->ExecKernel(kernel, 1, g, l);
+}
+
+template void im2col_cl<float>(const float* data_im,int off_im, const int channels,
+    const int height, const int width, const int kernel_h, const int kernel_w,
+    const int pad_h, const int pad_w, const int stride_h,
+    const int stride_w, const int dilation_h, const int dilation_w,
+    float* data_col);
+
+template void im2col_cl<double>(const double* data_im,int off_im, const int channels,
+    const int height, const int width, const int kernel_h, const int kernel_w,
+    const int pad_h, const int pad_w, const int stride_h,
+    const int stride_w, const int dilation_h, const int dilation_w,
+    double* data_col);
+
+template <typename Dtype>
+void col2im_nd_cl(const Dtype* data_col, const int num_spatial_axes,
+    const int im_size, const int* im_shape, const int* col_shape,
+    const int* kernel_shape, const int* pad, const int* stride,
+    const int* dilation, Dtype* data_im,int offD)
+{
+
+	if (num_spatial_axes > 10) {
+		LOG(FATAL) << "col2im_nd does not support computation with "
+				<< num_spatial_axes << " spatial axes";
+	}
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["col2im_nd"];
+	clSetKernelArg(kernel, 0, sizeof(int), &num_spatial_axes);
+	clSetKernelArg(kernel, 1, sizeof(int), &im_size);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &data_col);
+	clSetKernelArg(kernel, 3, sizeof(cl_mem), &im_shape);
+	clSetKernelArg(kernel, 4, sizeof(cl_mem), &col_shape);
+	clSetKernelArg(kernel, 5, sizeof(cl_mem), &kernel_shape);
+	clSetKernelArg(kernel, 6, sizeof(cl_mem), &pad);
+	clSetKernelArg(kernel, 7, sizeof(cl_mem), &stride);
+	clSetKernelArg(kernel, 8, sizeof(cl_mem), &dilation);
+	clSetKernelArg(kernel, 9, sizeof(cl_mem), &data_im);
+	clSetKernelArg(kernel, 10, sizeof(int), &offD);
+
+	size_t g[1] = { (size_t)im_size };
+	size_t l[1];
+	l[0] = im_size > 128 ? 128 : 1;
+	cl->ExecKernel(kernel, 1, g, l);
+}
+
+template void col2im_nd_cl<float>(const float* data_col, const int num_spatial_axes,
+    const int im_size, const int* im_shape, const int* col_shape,
+    const int* kernel_shape, const int* pad, const int* stride,
+    const int* dilation, float* data_im,int offD);
+
+template void col2im_nd_cl<double>(const double* data_col, const int num_spatial_axes,
+    const int im_size, const int* im_shape, const int* col_shape,
+    const int* kernel_shape, const int* pad, const int* stride,
+    const int* dilation, double* data_im,int offD);
+
+template <typename Dtype>
+void col2im_cl(const Dtype* data_col, const int channels,
+    const int height, const int width, const int kernel_h, const int kernel_w,
+    const int pad_h, const int pad_w, const int stride_h,
+    const int stride_w, const int dilation_h, const int dilation_w,
+    Dtype* data_im,int offD)
+{
+
+	int height_col = (height + 2 * pad_h - (dilation_h * (kernel_h - 1) + 1)) /
+	      stride_h + 1;
+	int width_col = (width + 2 * pad_w - (dilation_w * (kernel_w - 1) + 1)) /
+	      stride_w + 1;
+	int num_kernels = channels * height * width;
+
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["col2im"];
+	clSetKernelArg(kernel, 0, sizeof(int), &num_kernels);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &data_col);
 	clSetKernelArg(kernel, 2, sizeof(int), &height);
 	clSetKernelArg(kernel, 3, sizeof(int), &width);
 	clSetKernelArg(kernel, 4, sizeof(int), &kernel_h);
@@ -365,53 +395,12 @@ void im2col_cl(const Dtype* data_im, const int channels,
 	clSetKernelArg(kernel, 11, sizeof(int), &dilation_w);
 	clSetKernelArg(kernel, 12, sizeof(int), &height_col);
 	clSetKernelArg(kernel, 13, sizeof(int), &width_col);
-	clSetKernelArg(kernel, 14, sizeof(cl_mem), &data_col);
-
+	clSetKernelArg(kernel, 14, sizeof(cl_mem), &data_im);
+	clSetKernelArg(kernel, 15, sizeof(int), &offD);
 	size_t g[1] = { (size_t)num_kernels };
 	size_t l[1];
 	l[0] = num_kernels > 128 ? 128 : 1;
 	cl->ExecKernel(kernel, 1, g, l);
-}
-
-template void im2col_cl<float>(const float* data_im, const int channels,
-    const int height, const int width, const int kernel_h, const int kernel_w,
-    const int pad_h, const int pad_w, const int stride_h,
-    const int stride_w, const int dilation_h, const int dilation_w,
-    float* data_col);
-
-template void im2col_cl<double>(const double* data_im, const int channels,
-    const int height, const int width, const int kernel_h, const int kernel_w,
-    const int pad_h, const int pad_w, const int stride_h,
-    const int stride_w, const int dilation_h, const int dilation_w,
-    double* data_col);
-
-template <typename Dtype>
-void col2im_nd_cl(const Dtype* data_col, const int num_spatial_axes,
-    const int im_size, const int* im_shape, const int* col_shape,
-    const int* kernel_shape, const int* pad, const int* stride,
-    const int* dilation, Dtype* data_im)
-{
-	throw "abc";
-}
-
-template void col2im_nd_cl<float>(const float* data_col, const int num_spatial_axes,
-    const int im_size, const int* im_shape, const int* col_shape,
-    const int* kernel_shape, const int* pad, const int* stride,
-    const int* dilation, float* data_im);
-
-template void col2im_nd_cl<double>(const double* data_col, const int num_spatial_axes,
-    const int im_size, const int* im_shape, const int* col_shape,
-    const int* kernel_shape, const int* pad, const int* stride,
-    const int* dilation, double* data_im);
-
-template <typename Dtype>
-void col2im_cl(const Dtype* data_col, const int channels,
-    const int height, const int width, const int kernel_h, const int kernel_w,
-    const int pad_h, const int pad_w, const int stride_h,
-    const int stride_w, const int dilation_h, const int dilation_w,
-    Dtype* data_im)
-{
-	throw "abc";
 }
 
 
@@ -419,13 +408,13 @@ template void col2im_cl<float>(const float* data_col, const int channels,
     const int height, const int width, const int kernel_h, const int kernel_w,
     const int pad_h, const int pad_w, const int stride_h,
     const int stride_w, const int dilation_h, const int dilation_w,
-    float* data_im);
+    float* data_im,int offD);
 
 
 template void col2im_cl<double>(const double* data_col, const int channels,
     const int height, const int width, const int kernel_h, const int kernel_w,
     const int pad_h, const int pad_w, const int stride_h,
     const int stride_w, const int dilation_h, const int dilation_w,
-    double* data_im);
+    double* data_im,int offD);
 
 }  // namespace caffe

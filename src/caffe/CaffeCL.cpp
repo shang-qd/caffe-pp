@@ -29,7 +29,9 @@ CaffeCL::CaffeCL() : m_context(nullptr), m_commandQueue(nullptr), m_device(nullp
 
 bool CaffeCL::Init()
 {
-	std::vector<std::string> kn = { "caffe_copy", "im2col" };
+	std::vector<std::string> kn = {"caffe_copy",
+			"im2col","im2col_nd",
+			"col2im","col2im_nd"};
 	CreateProgram(cl_file,kn);
 	return true;
 }
@@ -152,7 +154,7 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 		char buildLog[16384];
 		clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG,sizeof(buildLog), buildLog, NULL);
 
-		LOG(FATAL) << "CaffeCL::CreateProgram" << buildLog;
+		LOG(FATAL) << "CaffeCL::CreateProgram:" << buildLog;
 		return false;
 	}
 	program_info pi;

@@ -393,71 +393,79 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
 #endif  // !CPU_ONLY
 
 template <typename Dtype>
-void BaseConvolutionLayer<Dtype>::forward_cl_gemm(const Dtype* input,
-    const Dtype* weights, Dtype* output, bool skip_im2col) {
+void BaseConvolutionLayer<Dtype>::forward_cl_gemm(
+		const Dtype* input,int off_input,
+		const Dtype* weights,int off_weights,
+		Dtype* output,int off_output, bool skip_im2col) {
   const Dtype* col_buff = input;
   if (!is_1x1_) {
     if (!skip_im2col) {
-      conv_im2col_cl(input, col_buffer_.mutable_gpu_data());
+      conv_im2col_cl(input, off_input, col_buffer_.mutable_gpu_data());
     }
     col_buff = col_buffer_.gpu_data();
+    off_input = 0;
   }
   for (int g = 0; g < group_; ++g) {
 	  math_cl::caffe_cl_gemm(clblasNoTrans, clblasNoTrans, conv_out_channels_ /
         group_, conv_out_spatial_dim_, kernel_dim_,
-        (Dtype)1., weights + weight_offset_ * g, col_buff + col_offset_ * g,
-        (Dtype)0., output + output_offset_ * g);
+        (Dtype)1., weights, off_weights + weight_offset_ * g,
+		col_buff, off_input + col_offset_ * g,
+        (Dtype)0., output, off_output + output_offset_ * g);
   }
 }
 
 template <typename Dtype>
-void BaseConvolutionLayer<Dtype>::forward_cl_bias(Dtype* output,
-    const Dtype* bias) {
+void BaseConvolutionLayer<Dtype>::forward_cl_bias(Dtype* output,int off_output,
+    const Dtype* bias,int off_bias) {
 	math_cl::caffe_cl_gemm(clblasNoTrans, clblasNoTrans, num_output_,
-      out_spatial_dim_, 1, (Dtype)1., bias, bias_multiplier_.gpu_data(),
-      (Dtype)1., output);
+      out_spatial_dim_, 1, (Dtype)1., bias,off_bias, bias_multiplier_.gpu_data(),0,
+      (Dtype)1., output,off_output);
 }
 
 template <typename Dtype>
-void BaseConvolutionLayer<Dtype>::backward_cl_gemm(const Dtype* output,
-    const Dtype* weights, Dtype* input) {
+void BaseConvolutionLayer<Dtype>::backward_cl_gemm(const Dtype* output,int off_output,
+    const Dtype* weights,int off_weights, Dtype* input,int off_input)
+	{
   Dtype* col_buff = col_buffer_.mutable_gpu_data();
+  int temp_off = 0;
   if (is_1x1_) {
     col_buff = input;
+    temp_off = off_input;
   }
   for (int g = 0; g < group_; ++g) {
 	  math_cl::caffe_cl_gemm<Dtype>(clblasTrans, clblasNoTrans, kernel_dim_,
         conv_out_spatial_dim_, conv_out_channels_ / group_,
-        (Dtype)1., weights + weight_offset_ * g, output + output_offset_ * g,
-        (Dtype)0., col_buff + col_offset_ * g);
+        (Dtype)1., weights,off_weights + weight_offset_ * g, output,off_output + output_offset_ * g,
+        (Dtype)0., col_buff,temp_off + col_offset_ * g);
   }
   if (!is_1x1_) {
-    conv_col2im_cl(col_buff, input);
+    conv_col2im_cl(col_buff, input,off_input);
   }
 }
 
 template <typename Dtype>
-void BaseConvolutionLayer<Dtype>::weight_cl_gemm(const Dtype* input,
-    const Dtype* output, Dtype* weights) {
+void BaseConvolutionLayer<Dtype>::weight_cl_gemm(const Dtype* input,int off_input,
+    const Dtype* output,int off_output, Dtype* weights,int off_weights) {
   const Dtype* col_buff = input;
   if (!is_1x1_) {
-    conv_im2col_cl(input, col_buffer_.mutable_gpu_data());
+    conv_im2col_cl(input,off_input, col_buffer_.mutable_gpu_data());
     col_buff = col_buffer_.gpu_data();
+    off_input = 0;
   }
   for (int g = 0; g < group_; ++g) {
 	  math_cl::caffe_cl_gemm<Dtype>(clblasNoTrans, clblasTrans, conv_out_channels_ / group_,
         kernel_dim_, conv_out_spatial_dim_,
-        (Dtype)1., output + output_offset_ * g, col_buff + col_offset_ * g,
-        (Dtype)1., weights + weight_offset_ * g);
+        (Dtype)1., output,off_output + output_offset_ * g, col_buff,off_input + col_offset_ * g,
+        (Dtype)1., weights,off_weights + weight_offset_ * g);
   }
 }
 
 
 template <typename Dtype>
-void BaseConvolutionLayer<Dtype>::backward_cl_bias(Dtype* bias,
-    const Dtype* input) {
+void BaseConvolutionLayer<Dtype>::backward_cl_bias(Dtype* bias,int off_bias,
+    const Dtype* input,int off_input) {
 	math_cl::caffe_cl_gemv(clblasNoTrans,num_output_,out_spatial_dim_,
-			(Dtype)1.,input,bias_multiplier_.gpu_data(),(Dtype)1.,bias);
+			(Dtype)1.,input,off_input,bias_multiplier_.gpu_data(),0,(Dtype)1.,bias,off_bias);
 }
 
 
