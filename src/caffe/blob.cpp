@@ -164,6 +164,13 @@ void Blob<Dtype>::Update() {
     break;
   case SyncedMemory::HEAD_AT_GPU:
   case SyncedMemory::SYNCED:
+	  if (Caffe::mode() == Caffe::CL){
+		  // TODO 先用CPU的方式替代
+		  caffe_axpy<Dtype>(count_, Dtype(-1),
+		          static_cast<const Dtype*>(diff_->cpu_data()),
+		          static_cast<Dtype*>(data_->mutable_cpu_data()));
+		      break;
+	  } else {
 #ifndef CPU_ONLY
     // perform computation on GPU
     caffe_gpu_axpy<Dtype>(count_, Dtype(-1),
@@ -172,6 +179,7 @@ void Blob<Dtype>::Update() {
 #else
     NO_GPU;
 #endif
+	  }
     break;
   default:
     LOG(FATAL) << "Syncedmem not initialized.";
