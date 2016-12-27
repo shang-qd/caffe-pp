@@ -33,6 +33,10 @@ bool CaffeCL::Init()
 			"im2col","im2col_nd",
 			"col2im","col2im_nd"};
 	CreateProgram(cl_file,kn);
+	cl_int err = clblasSetup();
+	if (err != CL_SUCCESS) {
+		LOG(FATAL) << "clblasSetup";
+	}
 	return true;
 }
 
@@ -109,6 +113,7 @@ bool CaffeCL::CreateCommandQueue()
 		LOG(FATAL) << "CaffeCL::CreateCommandQueue " << errNum;
 		return false;
 	}
+
 	m_commandQueue = clCreateCommandQueue(m_context, devices[0], CL_QUEUE_PROFILING_ENABLE, &errNum);
 	if (m_commandQueue == nullptr)
 	{

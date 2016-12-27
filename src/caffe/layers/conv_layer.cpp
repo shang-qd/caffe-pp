@@ -2,6 +2,9 @@
 
 #include "caffe/layers/conv_layer.hpp"
 
+#include "caffe/CaffeCL.h"
+#include <clBLAS.h>
+
 namespace caffe {
 
 template <typename Dtype>
@@ -31,11 +34,11 @@ void ConvolutionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     for (int n = 0; n < this->num_; ++n) {
       this->forward_cpu_gemm(bottom_data + n * this->bottom_dim_, weight,
           top_data + n * this->top_dim_);
-      /*
+
       if (this->bias_term_) {
         const Dtype* bias = this->blobs_[1]->cpu_data();
         this->forward_cpu_bias(top_data + n * this->top_dim_, bias);
-      }*/
+      }
     }
   }
 }
@@ -76,33 +79,28 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-	//Forward_cpu(bottom,top);
-	//return; 2.30259
-  const Dtype* weight = this->blobs_[0]->gpu_data();
+	const Dtype* weight = this->blobs_[0]->gpu_data();
     for (int i = 0; i < bottom.size(); ++i)
     {
-      const Dtype* bottom_data = bottom[i]->gpu_data();
-      Dtype* top_data = top[i]->mutable_gpu_data();
-      for (int n = 0; n < this->num_; ++n)
-      {
-        this->forward_cl_gemm(bottom_data,  n * this->bottom_dim_, weight,0,
-            top_data, n * this->top_dim_);
-        /*
-        if (this->bias_term_)
-        {
-          const Dtype* bias = this->blobs_[1]->gpu_data();
-          this->forward_cl_bias(top_data, n * this->top_dim_, bias,0);
-        }*/
-      }
+    	const Dtype* bottom_data = bottom[i]->gpu_data();
+    	Dtype* top_data = top[i]->mutable_gpu_data();
+    	for (int n = 0; n < (this->num_); ++n) {
+    		this->forward_cl_gemm(bottom_data,  n * this->bottom_dim_,
+    				weight, 0, top_data, n * this->top_dim_);
+
+    		if (this->bias_term_) {
+          	  const Dtype* bias = this->blobs_[1]->gpu_data();
+          	  this->forward_cl_bias(top_data, n * this->top_dim_, bias,0);
+        	}
+    	}
     }
 }
 
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-
-	Backward_cpu(top,propagate_down,bottom);
-	return;
+	//Backward_cpu(top,propagate_down,bottom);
+	//return;
   const Dtype* weight = this->blobs_[0]->gpu_data();
   Dtype* weight_diff = this->blobs_[0]->mutable_gpu_diff();
   for (int i = 0; i < top.size(); ++i) {
@@ -111,7 +109,8 @@ void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
     if (this->bias_term_ && this->param_propagate_down_[1]) {
       Dtype* bias_diff = this->blobs_[1]->mutable_gpu_diff();
       for (int n = 0; n < this->num_; ++n) {
-        this->backward_cl_bias(bias_diff,0, top_diff, n * this->top_dim_);
+    	  // OK OK
+        this->backward_cl_bias(bias_diff, 0, top_diff, n * this->top_dim_);
       }
     }
     if (this->param_propagate_down_[0] || propagate_down[i]) {
@@ -120,13 +119,14 @@ void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
       for (int n = 0; n < this->num_; ++n) {
         // gradient w.r.t. weight. Note that we will accumulate diffs.
         if (this->param_propagate_down_[0]) {
-          this->weight_cl_gemm(bottom_data, n * this->bottom_dim_,
-              top_diff, n * this->top_dim_, weight_diff,0);
+        	// OK OK
+          //this->weight_cl_gemm(bottom_data, n * this->bottom_dim_,
+          //    top_diff, n * this->top_dim_, weight_diff,0);
         }
         // gradient w.r.t. bottom data, if necessary.
         if (propagate_down[i]) {
-          this->backward_cl_gemm(top_diff, n * this->top_dim_, weight,0,
-              bottom_diff, n * this->bottom_dim_);
+          //this->backward_cl_gemm(top_diff, n * this->top_dim_, weight,0,
+          //    bottom_diff, n * this->bottom_dim_);
         }
       }
     }

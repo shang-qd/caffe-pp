@@ -7,6 +7,12 @@
 
 namespace math_cl{
 
+
+void cl_gemm_test(int M,int N,int K,
+		float *col_buff,int off_a,
+		float *weights, int off_b,
+		float *output,int off_c);
+
 template <typename Dtype>
 void caffe_copy(const int N, const Dtype* X, Dtype* Y);
 
@@ -16,14 +22,14 @@ void caffe_copy(const int N, const Dtype* X, Dtype* Y);
 template <typename Dtype>
 void caffe_cl_gemm(const clblasTranspose TransA,
     const clblasTranspose TransB, const int M, const int N, const int K,
-    const Dtype alpha, const Dtype* A,size_t offA, const Dtype* B,size_t offB,
-	const Dtype beta, Dtype* C,size_t offC);
+    const Dtype alpha, const Dtype* A,int offA, const Dtype* B,int offB,
+	const Dtype beta, Dtype* C,int offC);
 
 
 template <typename Dtype>
 void caffe_cl_gemv(const clblasTranspose TransA, const int M, const int N,
-    const Dtype alpha, const Dtype* A,size_t offA, const Dtype* x,size_t offX, const Dtype beta,
-    Dtype* y,size_t offY);
+    const Dtype alpha, const Dtype* A,int offA, const Dtype* x,int offX, const Dtype beta,
+    Dtype* y,int offY);
 };
 
 #endif

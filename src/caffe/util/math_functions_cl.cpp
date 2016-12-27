@@ -2,6 +2,7 @@
 #include "caffe/CaffeCL.h"
 #include <glog/logging.h>
 
+#include <mutex>
 #include <vector>
 #include <string>
 
@@ -27,6 +28,25 @@ void caffe_copy(const int N, const Dtype* X, Dtype* Y)
 template void caffe_copy<float>(const int N, const float* X, float* Y);
 template void caffe_copy<double>(const int N, const double* X, double* Y);
 
+
+void cl_gemm_test(int M,int N,int K,
+		float *col_buff,int off_a,
+		float *weights, int off_b,
+		float *output,int off_c)
+{
+
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_event event = NULL;
+	clblasSgemm(clblasRowMajor, clblasNoTrans, clblasNoTrans,
+	          	      M, N, K,1,
+					  (cl_mem)col_buff, off_a, N,
+					  (cl_mem)weights, off_b, K, 0,
+					  (cl_mem)output, off_c, K,
+					  1, &cl->m_commandQueue, 0, NULL, &event);
+	clWaitForEvents(1, &event);
+}
+
+/*
 template <typename Dtype>
 void caffe_cl_gemm(const clblasTranspose TransA,
     const clblasTranspose TransB, const int M, const int N, const int K,
@@ -34,14 +54,14 @@ void caffe_cl_gemm(const clblasTranspose TransA,
 	const Dtype beta, Dtype* C,size_t offC)
 {
 
+	//std::unique_lock<std::mutex> lck(g_mutex);
+	//clblasSetup();
 	int lda = (TransA == clblasNoTrans) ? K : M;
-	int ldb = (TransB == clblasNoTrans) ? N : K;
+	int ldb = (TransB == clblasNoTrans) ? K : N;
 	CaffeCL *cl = CaffeCL::Instance();
-
-	//LOG(INFO) << offA << ":" << offB << ":" << offC;
 	cl_event event = NULL;
-	cl_int err = clblasSgemm(clblasRowMajor, TransB, TransA,
-				N, M, K, (float)alpha,
+	cl_int err = clblasSgemm(clblasRowMajor, TransA, TransB,
+				M,N,K, (float)alpha,
 				(cl_mem)A, offA, lda,
 				(cl_mem)B, offB, ldb, (float)beta,
 				(cl_mem)C, offC, N,
@@ -50,26 +70,94 @@ void caffe_cl_gemm(const clblasTranspose TransA,
 	if (err != CL_SUCCESS) {
 		LOG(FATAL) << "caffe_cl_gemm" << err;
 	}
+	//clblasTeardown();
+}*/
+
+template <typename Dtype>
+void caffe_cl_gemm(const clblasTranspose TransA,const clblasTranspose TransB,
+		const int M, const int N, const int K,const Dtype alpha,
+		const Dtype *buf_a,int off_a,
+		const Dtype *buf_b,int off_b,const Dtype beta,
+		Dtype *buf_c,int off_c)
+{
+	int lda = (TransA == clblasNoTrans) ? K : M;
+	int ldb = (TransB == clblasNoTrans) ? N : K;
+	cl_int res = CL_SUCCESS;
+	cl_event event = NULL;
+	CaffeCL *cl = CaffeCL::Instance();
+	res = clblasSgemm(clblasRowMajor, TransA, TransB,
+				M, N, K, alpha,
+				(cl_mem)buf_a,off_a, lda,
+				(cl_mem)buf_b,off_b, ldb, beta,
+				(cl_mem)buf_c,off_c, N,
+				1, &cl->m_commandQueue, 0, NULL, &event);
+
+	res |= clWaitForEvents(1, &event);
+/*
+	float *cpu_a = new float[M * K];
+	float *cpu_b = new float[K * N];
+	float *cpu_c = new float[M * N];
+
+	res |= clEnqueueReadBuffer(cl->m_commandQueue, (cl_mem)buf_a, CL_TRUE, 0,
+							M * K * 4,cpu_a, 0, nullptr, nullptr);
+	res |= clEnqueueReadBuffer(cl->m_commandQueue, (cl_mem)buf_b, CL_TRUE, 0,
+							K * N * 4,cpu_b, 0, nullptr, nullptr);
+
+	res |= clEnqueueReadBuffer(cl->m_commandQueue, (cl_mem)buf_c, CL_TRUE, 0,
+				M * N * 4,cpu_c, 0, nullptr, nullptr);
+
+	float sum_a = 0;
+	float sum_b = 0;
+	float sum_c = 0;
+
+	float d_sum_c = 0;
+	  float *d_c = new float[M * N];
+	  for (int i = 0; i < M; i++){
+		  for (int j = 0; j < N; j++){
+			  float sum = 0;
+			  for (int k = 0; k < K; k++){
+				  sum += cpu_a[i * K + k] * cpu_b[k * N + j];
+			  }
+			  d_c[i * N + j] = sum;
+		  }
+	  }
+	for (int i = 0; i < M * K; i++){
+		  sum_a += cpu_a[i];
+	  }
+	  for (int i = 0; i < K * N; i++){
+		  sum_b += cpu_b[i];
+	  }
+	  for (int i = 0; i < M * N; i++){
+		  sum_c += cpu_c[i];
+		  d_sum_c += d_c[i];
+	  }
+	  LOG(INFO) << M << " : " << N << " : " << K;
+	  LOG(FATAL) << "CL " << sum_a << ":" <<  sum_b << ":" << sum_c << " = " << d_sum_c;
+*/
+	if (res != CL_SUCCESS) {
+			LOG(FATAL) << "CaffeCL::gpu2host" << res;
+	}
 }
 
 template void caffe_cl_gemm<float>(const clblasTranspose TransA,
-    const clblasTranspose TransB, const int M, const int N, const int K,
-    const float alpha, const float* A,size_t offA, const float* B,size_t offB,
-	const float beta,float* C,size_t offC);
+    const clblasTranspose TransB, const int M, const int K, const int N,
+    const float alpha, const float* A,int offA, const float* B,int offB,
+	const float beta,float* C,int offC);
 
 template void caffe_cl_gemm<double>(const clblasTranspose TransA,
-    const clblasTranspose TransB, const int M, const int N, const int K,
-    const double alpha, const double* A,size_t offA, const double* B,size_t offB,
-	const double beta,double* C,size_t offC);
-
+    const clblasTranspose TransB, const int M, const int K, const int N,
+    const double alpha, const double* A,int offA, const double* B,int offB,
+	const double beta,double* C,int offC);
 
 template <typename Dtype>
 void caffe_cl_gemv(const clblasTranspose TransA, const int M, const int N,
-    const Dtype alpha, const Dtype* A,size_t offA, const Dtype* x,size_t offX, const Dtype beta,
-    Dtype* y,size_t offY)
+    const Dtype alpha, const Dtype* A,int offA, const Dtype* x,int offX, const Dtype beta,
+    Dtype* y,int offY)
 {
 	CaffeCL *cl = CaffeCL::Instance();
-	cl_int err = clblasSgemv(clblasRowMajor, TransA, N, M, (float)alpha,
+	// M = 50;  N = 64
+	LOG(FATAL) << M << " : " << N << " : " << offA << " : " << offX << " : " << offY;
+	cl_int err = clblasSgemv(clblasRowMajor, TransA, M, N, (float)alpha,
 			(cl_mem)A, offA, N,
 			(cl_mem)x, offX, 1, (float)beta,
 			(cl_mem)y, offY, 1,
@@ -78,15 +166,14 @@ void caffe_cl_gemv(const clblasTranspose TransA, const int M, const int N,
 	if (err != CL_SUCCESS) {
 		LOG(FATAL) << "caffe_cl_gemv" << err;
 	}
+	LOG(INFO) << "123abc";
 }
 
-
 template void caffe_cl_gemv<float>(const clblasTranspose TransA, const int M, const int N,
-    const float alpha, const float* A,size_t offA, const float* x,size_t offX, const float beta,
-	float* y,size_t offY);
+    const float alpha, const float* A,int offA, const float* x,int offX, const float beta,
+	float* y,int offY);
 
 template void caffe_cl_gemv<double>(const clblasTranspose TransA, const int M, const int N,
-    const double alpha, const double* A,size_t offA, const double* x,size_t offX, const double beta,
-	double* y,size_t offY);
-
+    const double alpha, const double* A,int offA, const double* x,int offX, const double beta,
+	double* y,int offY);
 }; // end namespace

@@ -22,8 +22,12 @@ max_iter: 10000
 snapshot: 5000
 snapshot_prefix: "examples/mnist/lenet"
 # solver mode: CPU or GPU or CL
+# Iteration 100, loss = 1.01363
+# Iteration 200, loss = 0.663064
 solver_mode: CL
-random_seed: 1
+# CPU: 0.07125
+# CL : 0.07125
+random_seed: 0
 # CL 100: 0.210158
 # linux 
 # CPU I100: 0.210014 0.206413

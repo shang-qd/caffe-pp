@@ -18,6 +18,34 @@ void caffe_cpu_gemm<float>(const CBLAS_TRANSPOSE TransA,
   int ldb = (TransB == CblasNoTrans) ? N : K;
   cblas_sgemm(CblasRowMajor, TransA, TransB, M, N, K, alpha, A, lda, B,
       ldb, beta, C, N);
+  /*
+  float sum_a = 0;
+  float sum_b = 0;
+  float sum_c = 0;
+  float d_sum_c = 0;
+  float *d_c = new float[M * N];
+  for (int i = 0; i < M; i++){
+	  for (int j = 0; j < N; j++){
+		  float sum = 0;
+		  for (int k = 0; k < K; k++){
+			  sum += A[i * K + k] * B[k * N + j];
+		  }
+		  d_c[i * N + j] = sum;
+	  }
+  }
+  for (int i = 0; i < M * K; i++){
+	  sum_a += A[i];
+  }
+  for (int i = 0; i < K * N; i++){
+	  sum_b += B[i];
+  }
+  for (int i = 0; i < M * N; i++){
+	  sum_c += C[i];
+	  d_sum_c += d_c[i];
+  }
+  LOG(INFO) << M << " : " << N << " : " << K;
+  LOG(FATAL) << "CPU " << sum_a << " : " <<  sum_b << " : " << sum_c << " = " << d_sum_c;
+*/
 }
 
 template<>
