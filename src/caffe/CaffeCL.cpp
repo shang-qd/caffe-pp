@@ -212,11 +212,14 @@ cl_mem CaffeCL::CreateWriteMem(void *d, int size)
 
 bool CaffeCL::ExecKernel(cl_kernel kernel, int dim, const size_t *g, const size_t *l)
 {
-	cl_int res = clEnqueueNDRangeKernel(m_commandQueue, kernel, dim, nullptr, g, l, 0, nullptr, nullptr);
-	
-	if (res != CL_SUCCESS)
+	cl_event event = NULL;
+	cl_int errNum = clEnqueueNDRangeKernel(m_commandQueue, kernel, dim, nullptr, g, l, 0,
+			nullptr,&event);
+
+	errNum |= clWaitForEvents(1, &event);
+	if (errNum != CL_SUCCESS)
 	{
-		LOG(FATAL) << "CaffeCL::ExecKernel" << res;
+		LOG(FATAL) << "CaffeCL::ExecKernel" << errNum;
 	}
 	return true;
 }

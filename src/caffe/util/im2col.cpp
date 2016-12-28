@@ -372,37 +372,38 @@ void col2im_cl(const Dtype* data_col, const int channels,
     const int stride_w, const int dilation_h, const int dilation_w,
     Dtype* data_im,int offD)
 {
-
 	int height_col = (height + 2 * pad_h - (dilation_h * (kernel_h - 1) + 1)) /
 	      stride_h + 1;
 	int width_col = (width + 2 * pad_w - (dilation_w * (kernel_w - 1) + 1)) /
 	      stride_w + 1;
 	int num_kernels = channels * height * width;
-
+    //LOG(INFO) << channels << " : " <<  height << " : " << width;
 	CaffeCL *cl = CaffeCL::Instance();
+
 	cl_kernel kernel = cl->GetKernel(cl_file)["col2im"];
 	clSetKernelArg(kernel, 0, sizeof(int), &num_kernels);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), &data_col);
 	clSetKernelArg(kernel, 2, sizeof(int), &height);
 	clSetKernelArg(kernel, 3, sizeof(int), &width);
-	clSetKernelArg(kernel, 4, sizeof(int), &kernel_h);
-	clSetKernelArg(kernel, 5, sizeof(int), &kernel_w);
-	clSetKernelArg(kernel, 6, sizeof(int), &pad_h);
-	clSetKernelArg(kernel, 7, sizeof(int), &pad_w);
-	clSetKernelArg(kernel, 8, sizeof(int), &stride_h);
-	clSetKernelArg(kernel, 9, sizeof(int), &stride_w);
-	clSetKernelArg(kernel, 10, sizeof(int), &dilation_h);
-	clSetKernelArg(kernel, 11, sizeof(int), &dilation_w);
-	clSetKernelArg(kernel, 12, sizeof(int), &height_col);
-	clSetKernelArg(kernel, 13, sizeof(int), &width_col);
-	clSetKernelArg(kernel, 14, sizeof(cl_mem), &data_im);
-	clSetKernelArg(kernel, 15, sizeof(int), &offD);
+	clSetKernelArg(kernel, 4, sizeof(int), &channels);
+	clSetKernelArg(kernel, 5, sizeof(int), &kernel_h);
+	clSetKernelArg(kernel, 6, sizeof(int), &kernel_w);
+
+	clSetKernelArg(kernel, 7, sizeof(int), &pad_h);
+	clSetKernelArg(kernel, 8, sizeof(int), &pad_w);
+	clSetKernelArg(kernel, 9, sizeof(int), &stride_h);
+	clSetKernelArg(kernel, 10, sizeof(int), &stride_w);
+	clSetKernelArg(kernel, 11, sizeof(int), &dilation_h);
+	clSetKernelArg(kernel, 12, sizeof(int), &dilation_w);
+	clSetKernelArg(kernel, 13, sizeof(int), &height_col);
+	clSetKernelArg(kernel, 14, sizeof(int), &width_col);
+	clSetKernelArg(kernel, 15, sizeof(cl_mem), &data_im);
+	clSetKernelArg(kernel, 16, sizeof(int), &offD);
 	size_t g[1] = { (size_t)num_kernels };
 	size_t l[1];
 	l[0] = num_kernels > 128 ? 128 : 1;
 	cl->ExecKernel(kernel, 1, g, l);
 }
-
 
 template void col2im_cl<float>(const float* data_col, const int channels,
     const int height, const int width, const int kernel_h, const int kernel_w,

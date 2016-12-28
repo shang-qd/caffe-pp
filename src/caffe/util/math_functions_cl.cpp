@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 
-
 namespace math_cl{
 
 template <typename Dtype>
@@ -34,7 +33,6 @@ void cl_gemm_test(int M,int N,int K,
 		float *weights, int off_b,
 		float *output,int off_c)
 {
-
 	CaffeCL *cl = CaffeCL::Instance();
 	cl_event event = NULL;
 	clblasSgemm(clblasRowMajor, clblasNoTrans, clblasNoTrans,
@@ -45,33 +43,6 @@ void cl_gemm_test(int M,int N,int K,
 					  1, &cl->m_commandQueue, 0, NULL, &event);
 	clWaitForEvents(1, &event);
 }
-
-/*
-template <typename Dtype>
-void caffe_cl_gemm(const clblasTranspose TransA,
-    const clblasTranspose TransB, const int M, const int N, const int K,
-    const Dtype alpha, const Dtype* A,size_t offA, const Dtype* B,size_t offB,
-	const Dtype beta, Dtype* C,size_t offC)
-{
-
-	//std::unique_lock<std::mutex> lck(g_mutex);
-	//clblasSetup();
-	int lda = (TransA == clblasNoTrans) ? K : M;
-	int ldb = (TransB == clblasNoTrans) ? K : N;
-	CaffeCL *cl = CaffeCL::Instance();
-	cl_event event = NULL;
-	cl_int err = clblasSgemm(clblasRowMajor, TransA, TransB,
-				M,N,K, (float)alpha,
-				(cl_mem)A, offA, lda,
-				(cl_mem)B, offB, ldb, (float)beta,
-				(cl_mem)C, offC, N,
-				1, &cl->m_commandQueue, 0, NULL, &event);
-	err = clWaitForEvents(1, &event);
-	if (err != CL_SUCCESS) {
-		LOG(FATAL) << "caffe_cl_gemm" << err;
-	}
-	//clblasTeardown();
-}*/
 
 template <typename Dtype>
 void caffe_cl_gemm(const clblasTranspose TransA,const clblasTranspose TransB,
@@ -152,21 +123,9 @@ template void caffe_cl_gemm<double>(const clblasTranspose TransA,
 template <typename Dtype>
 void caffe_cl_gemv(const clblasTranspose TransA, const int M, const int N,
     const Dtype alpha, const Dtype* A,int offA, const Dtype* x,int offX, const Dtype beta,
-    Dtype* y,int offY)
-{
-	CaffeCL *cl = CaffeCL::Instance();
-	// M = 50;  N = 64
-	LOG(FATAL) << M << " : " << N << " : " << offA << " : " << offX << " : " << offY;
-	cl_int err = clblasSgemv(clblasRowMajor, TransA, M, N, (float)alpha,
-			(cl_mem)A, offA, N,
-			(cl_mem)x, offX, 1, (float)beta,
-			(cl_mem)y, offY, 1,
-			1, &cl->m_commandQueue, 0, NULL, NULL);
-
-	if (err != CL_SUCCESS) {
-		LOG(FATAL) << "caffe_cl_gemv" << err;
-	}
-	LOG(INFO) << "123abc";
+    Dtype* y,int offY) {
+	// TODO gemv:use gemm 替代
+	caffe_cl_gemm(TransA,clblasNoTrans,M,1,N,alpha,A,offA,x,offX,beta,y,offY);
 }
 
 template void caffe_cl_gemv<float>(const clblasTranspose TransA, const int M, const int N,

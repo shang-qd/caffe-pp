@@ -447,24 +447,16 @@ void BaseConvolutionLayer<Dtype>::backward_cl_gemm(const Dtype* output,int off_o
 				  col_buff,off_input + col_offset_ * g);
 	  }
 	  if (!is_1x1_) {
-	    conv_col2im_cl(col_buff, input,off_input);
+		  /*
+		  	  int size = conv_in_channels_ * conv_input_shape_.cpu_data()[1]
+				* conv_input_shape_.cpu_data()[2];
+			CaffeCL *cl = CaffeCL::Instance();
+			cl_mem bufC = clCreateBuffer(cl->m_context, CL_MEM_READ_WRITE,
+					size * sizeof(float),NULL, NULL);
+			//LOG(INFO) << "data_im : " << (float*)bufC;*/
+			conv_col2im_cl(col_buff, input,off_input);
+			//clReleaseMemObject(bufC);
 	  }
-	/*
-  Dtype* col_buff = col_buffer_.mutable_gpu_data();
-  int temp_off = 0;
-  if (is_1x1_) {
-    col_buff = input;
-    temp_off = off_input;
-  }
-  for (int g = 0; g < group_; ++g) {
-	  math_cl::caffe_cl_gemm<Dtype>(clblasTrans, clblasNoTrans, kernel_dim_,
-        conv_out_spatial_dim_, conv_out_channels_ / group_,
-        (Dtype)1., weights,off_weights + weight_offset_ * g, output,off_output + output_offset_ * g,
-        (Dtype)0., col_buff,temp_off + col_offset_ * g);
-  }
-  if (!is_1x1_) {
-    conv_col2im_cl(col_buff, input,off_input);
-  }*/
 }
 
 template <typename Dtype>

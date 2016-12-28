@@ -76,6 +76,7 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+/*
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
@@ -99,8 +100,11 @@ void ConvolutionLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-	//Backward_cpu(top,propagate_down,bottom);
-	//return;
+	if (this->layer_param_.name() == "conv2") {
+		Backward_cpu(top,propagate_down,bottom);
+		return;
+	}
+	//LOG(INFO) << "conv1 OK conv2 err -------------------------";
   const Dtype* weight = this->blobs_[0]->gpu_data();
   Dtype* weight_diff = this->blobs_[0]->mutable_gpu_diff();
   for (int i = 0; i < top.size(); ++i) {
@@ -109,7 +113,6 @@ void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
     if (this->bias_term_ && this->param_propagate_down_[1]) {
       Dtype* bias_diff = this->blobs_[1]->mutable_gpu_diff();
       for (int n = 0; n < this->num_; ++n) {
-    	  // OK OK
         this->backward_cl_bias(bias_diff, 0, top_diff, n * this->top_dim_);
       }
     }
@@ -119,19 +122,20 @@ void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
       for (int n = 0; n < this->num_; ++n) {
         // gradient w.r.t. weight. Note that we will accumulate diffs.
         if (this->param_propagate_down_[0]) {
-        	// OK OK
-          //this->weight_cl_gemm(bottom_data, n * this->bottom_dim_,
-          //    top_diff, n * this->top_dim_, weight_diff,0);
+        	//
+          this->weight_cl_gemm(bottom_data, n * this->bottom_dim_,
+              top_diff, n * this->top_dim_, weight_diff,0);
         }
         // gradient w.r.t. bottom data, if necessary.
         if (propagate_down[i]) {
-          //this->backward_cl_gemm(top_diff, n * this->top_dim_, weight,0,
-          //    bottom_diff, n * this->bottom_dim_);
+          this->backward_cl_gemm(top_diff, n * this->top_dim_, weight,0,
+              bottom_diff, n * this->bottom_dim_);
         }
       }
     }
   }
 }
+*/
 
 #ifdef CPU_ONLY
 STUB_GPU(ConvolutionLayer);

@@ -13,14 +13,18 @@ kernel void im2col(const int n, global float* data_im, const int off_im,
     const int height_col, const int width_col,
     global float* data_col)
 {
-
+	int ls = get_local_size(0);
+	int ng = get_num_groups(0);
+	int gi = get_group_id(0);
+	int li = get_local_id(0);
+	//printf("%d; %d; %d \n", a, b, a * b);
 	data_im += off_im;
 	// get_group_id(0)    blockIdx.x
 	// get_local_size(0)  blockDim.x
 	// get_local_id(0)    threadIdx.x
 	// get_num_groups(0)  gridDim.x  
 	//for ( int index = blockIdx.x * blockDim.x + threadIdx.x; index < n; index +=blockDim.x * gridDim.x) 
-  	for (int index = get_group_id(0) * get_local_size(0) + get_local_id(0);  index < n;  index += get_local_size(0) * get_num_groups(0))
+  	for (int index = gi * ls + li;  index < n;  index += ls * ng)
   	{
     		const int h_index = index / width_col;
     		const int h_col = h_index % height_col;
@@ -147,10 +151,15 @@ kernel void col2im(const int n, const global float* data_col,
     const int height_col, const int width_col,
     global float* data_im,const int off_im) 
 {
-   data_im += off_im;
-  //CUDA_KERNEL_LOOP(index, n) 
-  for (int index = get_group_id(0) * get_local_size(0) + get_local_id(0);  index < n;  index += get_local_size(0) * get_num_groups(0))
-  {
+	int ls = get_local_size(0);
+	int ng = get_num_groups(0);
+	int gi = get_group_id(0);
+	int li = get_local_id(0);
+    data_im += off_im;
+
+    //CUDA_KERNEL_LOOP(index, n) 
+    //for (int index = gi * ls + li;  index < n;  index += ls * ng)    
+    for (int index = gi * ls + li;  index < n;  index += ls * ng) {
     float val = 0;
     const int w_im = index % width + pad_w;
     const int h_im = (index / width) % height + pad_h;
