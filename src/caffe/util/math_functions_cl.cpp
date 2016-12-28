@@ -125,7 +125,7 @@ void caffe_cl_gemv(const clblasTranspose TransA, const int M, const int N,
     const Dtype alpha, const Dtype* A,int offA, const Dtype* x,int offX, const Dtype beta,
     Dtype* y,int offY) {
 	// TODO gemv:use gemm 替代
-	caffe_cl_gemm(TransA,clblasNoTrans,M,1,N,alpha,A,offA,x,offX,beta,y,offY);
+	caffe_cl_gemm(TransA,clblasNoTrans,N,1,M,alpha,A,offA,x,offX,beta,y,offY);
 }
 
 template void caffe_cl_gemv<float>(const clblasTranspose TransA, const int M, const int N,

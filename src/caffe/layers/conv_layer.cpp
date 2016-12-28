@@ -76,10 +76,12 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
-/*
+
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+	Forward_cpu(bottom,top);
+		return;
 	const Dtype* weight = this->blobs_[0]->gpu_data();
     for (int i = 0; i < bottom.size(); ++i)
     {
@@ -100,11 +102,8 @@ void ConvolutionLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-	if (this->layer_param_.name() == "conv2") {
-		Backward_cpu(top,propagate_down,bottom);
-		return;
-	}
-	//LOG(INFO) << "conv1 OK conv2 err -------------------------";
+	Backward_cpu(top,propagate_down,bottom);
+	return;
   const Dtype* weight = this->blobs_[0]->gpu_data();
   Dtype* weight_diff = this->blobs_[0]->mutable_gpu_diff();
   for (int i = 0; i < top.size(); ++i) {
@@ -135,7 +134,6 @@ void ConvolutionLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
     }
   }
 }
-*/
 
 #ifdef CPU_ONLY
 STUB_GPU(ConvolutionLayer);

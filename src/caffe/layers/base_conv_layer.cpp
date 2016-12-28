@@ -447,15 +447,7 @@ void BaseConvolutionLayer<Dtype>::backward_cl_gemm(const Dtype* output,int off_o
 				  col_buff,off_input + col_offset_ * g);
 	  }
 	  if (!is_1x1_) {
-		  /*
-		  	  int size = conv_in_channels_ * conv_input_shape_.cpu_data()[1]
-				* conv_input_shape_.cpu_data()[2];
-			CaffeCL *cl = CaffeCL::Instance();
-			cl_mem bufC = clCreateBuffer(cl->m_context, CL_MEM_READ_WRITE,
-					size * sizeof(float),NULL, NULL);
-			//LOG(INFO) << "data_im : " << (float*)bufC;*/
 			conv_col2im_cl(col_buff, input,off_input);
-			//clReleaseMemObject(bufC);
 	  }
 }
 

@@ -1,5 +1,5 @@
 PROJECT := caffe
-
+#shang_qd
 CONFIG_FILE := Makefile.config
 # Explicitly check for the config file, otherwise make -k will proceed anyway.
 ifeq ($(wildcard $(CONFIG_FILE)),)
