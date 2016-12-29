@@ -7,6 +7,8 @@
 
 using namespace std;
 
+extern int CAFFE_CL_NUM_THREADS;
+
 extern const char* cl_file;// = "cl_common.cl";
 //
 class CaffeCL

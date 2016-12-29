@@ -10,6 +10,8 @@
 #include <string>
 #include <glog/logging.h>
 
+int CAFFE_CL_NUM_THREADS = 128;
+
 const char* cl_file = "./cl/cl_common.cl";
 
 CaffeCL::CaffeCL() : m_context(nullptr), m_commandQueue(nullptr), m_device(nullptr)
@@ -29,7 +31,7 @@ CaffeCL::CaffeCL() : m_context(nullptr), m_commandQueue(nullptr), m_device(nullp
 
 bool CaffeCL::Init()
 {
-	std::vector<std::string> kn = {"caffe_copy",
+	std::vector<std::string> kn = {"caffe_copy","caffe_set",
 			"im2col","im2col_nd",
 			"col2im","col2im_nd"};
 	CreateProgram(cl_file,kn);

@@ -4,8 +4,13 @@
 
 #include "caffe/layers/pooling_layer.hpp"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/util/math_functions_cl.hpp"
+#include "caffe/CaffeCL.h"
 
 namespace caffe {
+
+
+static const char* cl_file = "./cl/Pooling.cl";
 
 using std::min;
 using std::max;
@@ -72,6 +77,11 @@ void PoolingLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
         << "Padding implemented only for average and max pooling.";
     CHECK_LT(pad_h_, kernel_h_);
     CHECK_LT(pad_w_, kernel_w_);
+  }
+  if (Caffe::mode() == Caffe::CL) {
+	  CaffeCL *cl = CaffeCL::Instance();
+	  std::vector<string> vs = { "MaxPoolForward","MaxPoolBackward" };
+	  cl->CreateProgram(cl_file, vs);
   }
 }
 
@@ -304,6 +314,131 @@ void PoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   default:
     LOG(FATAL) << "Unknown pooling method.";
   }
+}
+
+template <typename Dtype>
+void PoolingLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
+		const vector<Blob<Dtype>*>& top) {
+	const Dtype* bottom_data = bottom[0]->gpu_data();
+	Dtype* top_data = top[0]->mutable_gpu_data();
+	int count = top[0]->count();
+	// We'll output the mask to top[1] if it's of size >1.
+	const bool use_top_mask = top.size() > 1;
+	int* mask = NULL;
+	Dtype* top_mask = NULL;
+	CaffeCL *cl = CaffeCL::Instance();
+	int num = bottom[0]->num();
+	cl_kernel kernel = nullptr;
+	size_t g[1] = { (size_t)count };
+	size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
+
+	switch (this->layer_param_.pooling_param().pool()) {
+		case PoolingParameter_PoolMethod_MAX:
+			if (use_top_mask) {
+				top_mask = top[1]->mutable_gpu_data();
+			} else {
+				mask = max_idx_.mutable_gpu_data();
+			}
+			kernel = cl->GetKernel(cl_file)["MaxPoolForward"];
+			clSetKernelArg(kernel, 0, sizeof(cl_mem), &bottom_data);
+			clSetKernelArg(kernel, 1, sizeof(int), &num);
+			clSetKernelArg(kernel, 2, sizeof(int), &channels_);
+			clSetKernelArg(kernel, 3, sizeof(int), &height_);
+			clSetKernelArg(kernel, 4, sizeof(int), &width_);
+			clSetKernelArg(kernel, 5, sizeof(int), &pooled_height_);
+			clSetKernelArg(kernel, 6, sizeof(int), &pooled_width_);
+			clSetKernelArg(kernel, 7, sizeof(int), &kernel_h_);
+			clSetKernelArg(kernel, 8, sizeof(int), &kernel_w_);
+			clSetKernelArg(kernel, 9, sizeof(int), &stride_h_);
+			clSetKernelArg(kernel, 10, sizeof(int), &stride_w_);
+			clSetKernelArg(kernel, 11, sizeof(int), &pad_h_);
+			clSetKernelArg(kernel, 12, sizeof(int), &pad_w_);
+			clSetKernelArg(kernel, 13, sizeof(cl_mem), &top_data);
+			clSetKernelArg(kernel, 14, sizeof(cl_mem), &mask);
+			clSetKernelArg(kernel, 15, sizeof(cl_mem), &top_mask);
+			cl->ExecKernel(kernel,1,g,l);
+			break;
+		case PoolingParameter_PoolMethod_AVE:
+			LOG(FATAL) << "not use AVE";
+			break;
+		case PoolingParameter_PoolMethod_STOCHASTIC:
+			LOG(FATAL) << "not use STOCHASTIC";
+			break;
+		default:
+			LOG(FATAL) << "Unknown pooling method.";
+	}
+}
+
+template <typename Dtype>
+void PoolingLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+	Backward_cpu(top,propagate_down,bottom);
+	return;
+	if (!propagate_down[0]) {
+	    return;
+	  }
+	  const Dtype* top_diff = top[0]->gpu_diff();
+	  Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
+	  const int count = bottom[0]->count();
+	  math_cl::caffe_set(count, Dtype(0.), bottom_diff);
+	  // We'll output the mask to top[1] if it's of size >1.
+	  const bool use_top_mask = top.size() > 1;
+	  const int* mask = NULL;
+	  const Dtype* top_mask = NULL;
+
+	  CaffeCL *cl = CaffeCL::Instance();
+	  int num = top[0]->num();
+	  cl_kernel kernel = nullptr;
+	  size_t g[1] = { (size_t)count };
+	  size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
+
+	  switch (this->layer_param_.pooling_param().pool()) {
+	  case PoolingParameter_PoolMethod_MAX:
+	    if (use_top_mask) {
+	      top_mask = top[1]->gpu_data();
+	    } else {
+	      mask = max_idx_.gpu_data();
+	    }
+	    kernel = cl->GetKernel(cl_file)["MaxPoolBackward"];
+	    clSetKernelArg(kernel, 0, sizeof(cl_mem), &top_diff);
+	    clSetKernelArg(kernel, 1, sizeof(cl_mem), &mask);
+	    clSetKernelArg(kernel, 2, sizeof(cl_mem), &top_mask);
+	    clSetKernelArg(kernel, 3, sizeof(int), &num);
+	    clSetKernelArg(kernel, 4, sizeof(int), &channels_);
+	    clSetKernelArg(kernel, 5, sizeof(int), &height_);
+	    clSetKernelArg(kernel, 6, sizeof(int), &width_);
+	    clSetKernelArg(kernel, 7, sizeof(int), &pooled_height_);
+	    clSetKernelArg(kernel, 8, sizeof(int), &pooled_width_);
+	    clSetKernelArg(kernel, 9, sizeof(int), &kernel_h_);
+	    clSetKernelArg(kernel, 10, sizeof(int), &kernel_w_);
+	    clSetKernelArg(kernel, 11, sizeof(int), &stride_h_);
+	    clSetKernelArg(kernel, 12, sizeof(int), &stride_w_);
+	    clSetKernelArg(kernel, 13, sizeof(int), &pad_h_);
+	    clSetKernelArg(kernel, 14, sizeof(int), &pad_w_);
+	    clSetKernelArg(kernel, 15, sizeof(cl_mem), &bottom_diff);
+	    cl->ExecKernel(kernel,1,g,l);
+	    break;
+	  case PoolingParameter_PoolMethod_AVE:
+	    // NOLINT_NEXT_LINE(whitespace/operators)
+	    //AvePoolBackward<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+	    //    count, top_diff, top[0]->num(), channels_,
+	    //    height_, width_, pooled_height_, pooled_width_, kernel_h_,
+	    //    kernel_w_, stride_h_, stride_w_, pad_h_, pad_w_, bottom_diff);
+
+		  LOG(FATAL) << "not use AVE";
+	    break;
+	  case PoolingParameter_PoolMethod_STOCHASTIC:
+	    // NOLINT_NEXT_LINE(whitespace/operators)
+	    //StoPoolBackward<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+	    //    count, rand_idx_.gpu_data(), top_diff,
+	    //    top[0]->num(), channels_, height_, width_, pooled_height_,
+	    //    pooled_width_, kernel_h_, kernel_w_, stride_h_, stride_w_,
+	    //    bottom_diff);
+		  LOG(FATAL) << "not use STOCHASTIC";
+		  break;
+	  default:
+	    LOG(FATAL) << "Unknown pooling method.";
+	  }
 }
 
 

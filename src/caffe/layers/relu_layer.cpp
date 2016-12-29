@@ -13,7 +13,7 @@ void ReLULayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 		const vector<Blob<Dtype>*>& top){
 	if (Caffe::mode() == Caffe::CL) {
 				CaffeCL *cl = CaffeCL::Instance();
-				std::vector<string> vs = { "ReLU_Forward", "ReLU_Backward","hello_kernel" };
+				std::vector<string> vs = { "ReLU_Forward", "ReLU_Backward" };
 				cl->CreateProgram(cl_file, vs);
 	}
 }

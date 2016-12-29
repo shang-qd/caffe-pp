@@ -25,7 +25,7 @@ snapshot_prefix: "examples/mnist/lenet"
 # Iteration 100, loss = 1.01363
 # Iteration 200, loss = 0.663064
 
-solver_mode: CPU
+solver_mode: CL
 # CPU: 0.07125
 # CL : 0.07125
 random_seed: 0

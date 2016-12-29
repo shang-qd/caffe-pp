@@ -27,22 +27,22 @@ void caffe_copy(const int N, const Dtype* X, Dtype* Y)
 template void caffe_copy<float>(const int N, const float* X, float* Y);
 template void caffe_copy<double>(const int N, const double* X, double* Y);
 
+template <typename Dtype>
+void caffe_set(const int N, const Dtype alpha, Dtype* Y) {
 
-void cl_gemm_test(int M,int N,int K,
-		float *col_buff,int off_a,
-		float *weights, int off_b,
-		float *output,int off_c)
-{
 	CaffeCL *cl = CaffeCL::Instance();
-	cl_event event = NULL;
-	clblasSgemm(clblasRowMajor, clblasNoTrans, clblasNoTrans,
-	          	      M, N, K,1,
-					  (cl_mem)col_buff, off_a, N,
-					  (cl_mem)weights, off_b, K, 0,
-					  (cl_mem)output, off_c, K,
-					  1, &cl->m_commandQueue, 0, NULL, &event);
-	clWaitForEvents(1, &event);
+	cl_kernel kernel = cl->GetKernel(cl_file)["caffe_set"];
+	clSetKernelArg(kernel, 0, sizeof(float), &alpha);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &Y);
+	size_t g[1] = { (size_t)N };
+	size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
+	cl->ExecKernel(kernel, 1, g, l);
 }
+
+//template void caffe_set<int>(const int N, const int alpha, int* Y);
+template void caffe_set<float>(const int N, const float alpha, float* Y);
+template void caffe_set<double>(const int N, const double alpha, double* Y);
+
 
 template <typename Dtype>
 void caffe_cl_gemm(const clblasTranspose TransA,const clblasTranspose TransB,

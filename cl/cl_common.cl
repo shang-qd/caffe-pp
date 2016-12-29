@@ -5,6 +5,12 @@ kernel void caffe_copy(global const float *X, global float *Y)
 	Y[gid] = X[gid];
 }
 
+kernel void caffe_set(const float alpha, global float *Y)
+{
+	int gid = get_global_id(0);
+	Y[gid] = alpha;
+}
+
 kernel void im2col(const int n, global float* data_im, const int off_im,
     const int height, const int width, const int kernel_h, const int kernel_w,
     const int pad_h, const int pad_w,
