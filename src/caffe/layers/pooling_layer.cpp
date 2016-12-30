@@ -340,22 +340,23 @@ void PoolingLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
 				mask = max_idx_.mutable_gpu_data();
 			}
 			kernel = cl->GetKernel(cl_file)["MaxPoolForward"];
-			clSetKernelArg(kernel, 0, sizeof(cl_mem), &bottom_data);
-			clSetKernelArg(kernel, 1, sizeof(int), &num);
-			clSetKernelArg(kernel, 2, sizeof(int), &channels_);
-			clSetKernelArg(kernel, 3, sizeof(int), &height_);
-			clSetKernelArg(kernel, 4, sizeof(int), &width_);
-			clSetKernelArg(kernel, 5, sizeof(int), &pooled_height_);
-			clSetKernelArg(kernel, 6, sizeof(int), &pooled_width_);
-			clSetKernelArg(kernel, 7, sizeof(int), &kernel_h_);
-			clSetKernelArg(kernel, 8, sizeof(int), &kernel_w_);
-			clSetKernelArg(kernel, 9, sizeof(int), &stride_h_);
-			clSetKernelArg(kernel, 10, sizeof(int), &stride_w_);
-			clSetKernelArg(kernel, 11, sizeof(int), &pad_h_);
-			clSetKernelArg(kernel, 12, sizeof(int), &pad_w_);
-			clSetKernelArg(kernel, 13, sizeof(cl_mem), &top_data);
-			clSetKernelArg(kernel, 14, sizeof(cl_mem), &mask);
-			clSetKernelArg(kernel, 15, sizeof(cl_mem), &top_mask);
+			clSetKernelArg(kernel, 0, sizeof(int), &count);
+			clSetKernelArg(kernel, 1, sizeof(cl_mem), &bottom_data);
+			clSetKernelArg(kernel, 2, sizeof(int), &num);
+			clSetKernelArg(kernel, 3, sizeof(int), &channels_);
+			clSetKernelArg(kernel, 4, sizeof(int), &height_);
+			clSetKernelArg(kernel, 5, sizeof(int), &width_);
+			clSetKernelArg(kernel, 6, sizeof(int), &pooled_height_);
+			clSetKernelArg(kernel, 7, sizeof(int), &pooled_width_);
+			clSetKernelArg(kernel, 8, sizeof(int), &kernel_h_);
+			clSetKernelArg(kernel, 9, sizeof(int), &kernel_w_);
+			clSetKernelArg(kernel, 10, sizeof(int), &stride_h_);
+			clSetKernelArg(kernel, 11, sizeof(int), &stride_w_);
+			clSetKernelArg(kernel, 12, sizeof(int), &pad_h_);
+			clSetKernelArg(kernel, 13, sizeof(int), &pad_w_);
+			clSetKernelArg(kernel, 14, sizeof(cl_mem), &top_data);
+			clSetKernelArg(kernel, 15, sizeof(cl_mem), &mask);
+			clSetKernelArg(kernel, 16, sizeof(cl_mem), &top_mask);
 			cl->ExecKernel(kernel,1,g,l);
 			break;
 		case PoolingParameter_PoolMethod_AVE:
@@ -372,8 +373,8 @@ void PoolingLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-	Backward_cpu(top,propagate_down,bottom);
-	return;
+	//Backward_cpu(top,propagate_down,bottom);
+	//return;
 	if (!propagate_down[0]) {
 	    return;
 	  }
@@ -400,22 +401,23 @@ void PoolingLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
 	      mask = max_idx_.gpu_data();
 	    }
 	    kernel = cl->GetKernel(cl_file)["MaxPoolBackward"];
-	    clSetKernelArg(kernel, 0, sizeof(cl_mem), &top_diff);
-	    clSetKernelArg(kernel, 1, sizeof(cl_mem), &mask);
-	    clSetKernelArg(kernel, 2, sizeof(cl_mem), &top_mask);
-	    clSetKernelArg(kernel, 3, sizeof(int), &num);
-	    clSetKernelArg(kernel, 4, sizeof(int), &channels_);
-	    clSetKernelArg(kernel, 5, sizeof(int), &height_);
-	    clSetKernelArg(kernel, 6, sizeof(int), &width_);
-	    clSetKernelArg(kernel, 7, sizeof(int), &pooled_height_);
-	    clSetKernelArg(kernel, 8, sizeof(int), &pooled_width_);
-	    clSetKernelArg(kernel, 9, sizeof(int), &kernel_h_);
-	    clSetKernelArg(kernel, 10, sizeof(int), &kernel_w_);
-	    clSetKernelArg(kernel, 11, sizeof(int), &stride_h_);
-	    clSetKernelArg(kernel, 12, sizeof(int), &stride_w_);
-	    clSetKernelArg(kernel, 13, sizeof(int), &pad_h_);
-	    clSetKernelArg(kernel, 14, sizeof(int), &pad_w_);
-	    clSetKernelArg(kernel, 15, sizeof(cl_mem), &bottom_diff);
+	    clSetKernelArg(kernel, 0, sizeof(int), &count);
+	    clSetKernelArg(kernel, 1, sizeof(cl_mem), &top_diff);
+	    clSetKernelArg(kernel, 2, sizeof(cl_mem), &mask);
+	    clSetKernelArg(kernel, 3, sizeof(cl_mem), &top_mask);
+	    clSetKernelArg(kernel, 4, sizeof(int), &num);
+	    clSetKernelArg(kernel, 5, sizeof(int), &channels_);
+	    clSetKernelArg(kernel, 6, sizeof(int), &height_);
+	    clSetKernelArg(kernel, 7, sizeof(int), &width_);
+	    clSetKernelArg(kernel, 8, sizeof(int), &pooled_height_);
+	    clSetKernelArg(kernel, 9, sizeof(int), &pooled_width_);
+	    clSetKernelArg(kernel, 10, sizeof(int), &kernel_h_);
+	    clSetKernelArg(kernel, 11, sizeof(int), &kernel_w_);
+	    clSetKernelArg(kernel, 12, sizeof(int), &stride_h_);
+	    clSetKernelArg(kernel, 13, sizeof(int), &stride_w_);
+	    clSetKernelArg(kernel, 14, sizeof(int), &pad_h_);
+	    clSetKernelArg(kernel, 15, sizeof(int), &pad_w_);
+	    clSetKernelArg(kernel, 16, sizeof(cl_mem), &bottom_diff);
 	    cl->ExecKernel(kernel,1,g,l);
 	    break;
 	  case PoolingParameter_PoolMethod_AVE:

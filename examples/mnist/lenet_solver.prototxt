@@ -24,14 +24,12 @@ snapshot_prefix: "examples/mnist/lenet"
 # solver mode: CPU or GPU or CL
 # Iteration 100, loss = 1.01363
 # Iteration 200, loss = 0.663064
-
+    
 solver_mode: CL
 # CPU: 0.07125
 # CL : 0.07125
 random_seed: 0
 # CL 100: 0.210158
 # Iteration 100, loss = 1.01363
-# CPU I100: 0.210014 0.206413
-# CPU I200: 0.128255
 # CPU A1: 0.9723%
 # CL

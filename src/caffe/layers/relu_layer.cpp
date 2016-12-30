@@ -40,12 +40,12 @@ void ReLULayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
 
 	CaffeCL *cl = CaffeCL::Instance();
 	cl_kernel kernel = cl->GetKernel(cl_file)["ReLU_Forward"];
-	clSetKernelArg(kernel, 0, sizeof(cl_mem), &bottom_data);
-	clSetKernelArg(kernel, 1, sizeof(cl_mem), &top_data);
-	clSetKernelArg(kernel, 2, sizeof(Dtype), (Dtype*)&negative_slope);
+	clSetKernelArg(kernel, 0, sizeof(int), &count);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &bottom_data);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &top_data);
+	clSetKernelArg(kernel, 3, sizeof(float), &negative_slope);
 	size_t g[1] = { (size_t)count };
-	size_t l[1];
-	l[0] = count > 128 ? 128 : 1;
+	size_t l[1]= { (size_t)CAFFE_CL_NUM_THREADS };
 	cl->ExecKernel(kernel, 1, g, l);
 }
 
@@ -78,13 +78,13 @@ void ReLULayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
 		Dtype negative_slope = this->layer_param_.relu_param().negative_slope();
 		CaffeCL *cl = CaffeCL::Instance();
 		cl_kernel kernel = cl->GetKernel(cl_file)["ReLU_Backward"];
-		clSetKernelArg(kernel, 0, sizeof(cl_mem), (cl_mem*)&bottom_data);
-		clSetKernelArg(kernel, 1, sizeof(cl_mem), (cl_mem*)&top_diff);
-		clSetKernelArg(kernel, 2, sizeof(cl_mem), (cl_mem*)&bottom_diff);
-		clSetKernelArg(kernel, 3, sizeof(float), (cl_mem*)&negative_slope);
+		clSetKernelArg(kernel, 0, sizeof(int), &count);
+		clSetKernelArg(kernel, 1, sizeof(cl_mem), &bottom_data);
+		clSetKernelArg(kernel, 2, sizeof(cl_mem), &top_diff);
+		clSetKernelArg(kernel, 3, sizeof(cl_mem), &bottom_diff);
+		clSetKernelArg(kernel, 4, sizeof(float), &negative_slope);
 		size_t g[1] = { (size_t)count };
-		size_t l[1];
-		l[0] = count >128 ? 128 : 1;
+		size_t l[1]= { (size_t)CAFFE_CL_NUM_THREADS };
 		cl->ExecKernel(kernel,1,g,l);
 	}
 }

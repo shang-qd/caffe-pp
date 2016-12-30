@@ -171,36 +171,8 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   }
 #endif
 
-  inline void conv_im2col_cl(const Dtype* data,int offD, Dtype* col_buff) {
-      if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
-        im2col_cl(data,offD, conv_in_channels_,
-            conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
-            kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-            pad_.cpu_data()[0], pad_.cpu_data()[1],
-            stride_.cpu_data()[0], stride_.cpu_data()[1],
-            dilation_.cpu_data()[0], dilation_.cpu_data()[1], col_buff);
-      } else {
-        im2col_nd_cl(data,offD, num_spatial_axes_, num_kernels_im2col_,
-            conv_input_shape_.gpu_data(), col_buffer_.gpu_shape(),
-            kernel_shape_.gpu_data(), pad_.gpu_data(),
-            stride_.gpu_data(), dilation_.gpu_data(), col_buff);
-      }
-    }
-    inline void conv_col2im_cl(const Dtype* col_buff, Dtype* data,int offD) {
-      if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
-        col2im_cl(col_buff, conv_in_channels_,
-            conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
-            kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-            pad_.cpu_data()[0], pad_.cpu_data()[1],
-            stride_.cpu_data()[0], stride_.cpu_data()[1],
-            dilation_.cpu_data()[0], dilation_.cpu_data()[1], data,offD);
-      } else {
-        col2im_nd_cl(col_buff, num_spatial_axes_, num_kernels_col2im_,
-            conv_input_shape_.gpu_data(), col_buffer_.gpu_shape(),
-            kernel_shape_.gpu_data(), pad_.gpu_data(), stride_.gpu_data(),
-            dilation_.gpu_data(), data,offD);
-      }
-    }
+  void conv_im2col_cl(const Dtype* data,int offD, Dtype* col_buff);
+  void conv_col2im_cl(const Dtype* col_buff, Dtype* data,int offD);
 
   int num_kernels_im2col_;
   int num_kernels_col2im_;

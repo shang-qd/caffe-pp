@@ -1,10 +1,11 @@
-kernel void MaxPoolForward(global float* bottom_data, const int num, const int channels,
+kernel void MaxPoolForward(const int n_, global float* bottom_data, const int num, const int channels,
     	const int height, const int width, const int pooled_height,
     	const int pooled_width, const int kernel_h, const int kernel_w,
     	const int stride_h, const int stride_w, const int pad_h, const int pad_w,
     	global float* top_data, global int* mask, global float* top_mask) {
 	
 	int index = get_global_id(0);
+	if (index >= n_){ return; }
     const int pw = index % pooled_width;
     const int ph = (index / pooled_width) % pooled_height;
     const int c = (index / pooled_width / pooled_height) % channels;
@@ -36,14 +37,14 @@ kernel void MaxPoolForward(global float* bottom_data, const int num, const int c
 }
 
 
-kernel void MaxPoolBackward(global const float* top_diff, global const int* mask, 
+kernel void MaxPoolBackward(const int n_, global const float* top_diff, global const int* mask, 
 	global const float* top_mask, const int num,
     const int channels, const int height, const int width,
     const int pooled_height, const int pooled_width, const int kernel_h,
     const int kernel_w, const int stride_h, const int stride_w, const int pad_h,
     const int pad_w, global float *bottom_diff) {
 	int index = get_global_id(0);
-
+	if (index >= n_) { return; }
     // find out the local index
     // find out the local offset
     const int w = index % width;

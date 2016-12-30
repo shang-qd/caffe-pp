@@ -31,9 +31,7 @@ CaffeCL::CaffeCL() : m_context(nullptr), m_commandQueue(nullptr), m_device(nullp
 
 bool CaffeCL::Init()
 {
-	std::vector<std::string> kn = {"caffe_copy","caffe_set",
-			"im2col","im2col_nd",
-			"col2im","col2im_nd"};
+	std::vector<std::string> kn = {"caffe_copy","caffe_set"};
 	CreateProgram(cl_file,kn);
 	cl_int err = clblasSetup();
 	if (err != CL_SUCCESS) {

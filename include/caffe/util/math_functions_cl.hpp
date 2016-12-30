@@ -9,6 +9,9 @@ namespace math_cl{
 
 
 template <typename Dtype>
+Dtype debug_sum(const Dtype* add,int n);
+
+template <typename Dtype>
 void caffe_copy(const int N, const Dtype* X, Dtype* Y);
 
 template <typename Dtype>

@@ -9,16 +9,30 @@
 namespace math_cl{
 
 template <typename Dtype>
+Dtype debug_sum(const Dtype* add,int n)
+{
+	Dtype res = (Dtype)0.;
+	for (int i = 0; i < n; i++){
+		res += add[i];
+	}
+	return res;
+}
+
+template float debug_sum<float>(const float* add,int n);
+template double debug_sum<double>(const double* add,int n);
+
+
+template <typename Dtype>
 void caffe_copy(const int N, const Dtype* X, Dtype* Y)
 {
 	if (X != Y) {
 		CaffeCL *cl = CaffeCL::Instance();
 		cl_kernel kernel = cl->GetKernel(cl_file)["caffe_copy"];
-		clSetKernelArg(kernel, 0, sizeof(cl_mem), &X);
-		clSetKernelArg(kernel, 1, sizeof(cl_mem), &Y);
+		clSetKernelArg(kernel, 0, sizeof(int), &N);
+		clSetKernelArg(kernel, 1, sizeof(cl_mem), &X);
+		clSetKernelArg(kernel, 2, sizeof(cl_mem), &Y);
 		size_t g[1] = { (size_t)N };
-		size_t l[1];
-		l[0] = N > 128 ? 128 : 1;
+		size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
 		cl->ExecKernel(kernel, 1, g, l);
 	}
 }
@@ -32,8 +46,9 @@ void caffe_set(const int N, const Dtype alpha, Dtype* Y) {
 
 	CaffeCL *cl = CaffeCL::Instance();
 	cl_kernel kernel = cl->GetKernel(cl_file)["caffe_set"];
-	clSetKernelArg(kernel, 0, sizeof(float), &alpha);
-	clSetKernelArg(kernel, 1, sizeof(cl_mem), &Y);
+	clSetKernelArg(kernel, 0, sizeof(int), &N);
+	clSetKernelArg(kernel, 1, sizeof(float), &alpha);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &Y);
 	size_t g[1] = { (size_t)N };
 	size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
 	cl->ExecKernel(kernel, 1, g, l);
@@ -64,6 +79,7 @@ void caffe_cl_gemm(const clblasTranspose TransA,const clblasTranspose TransB,
 				1, &cl->m_commandQueue, 0, NULL, &event);
 
 	res |= clWaitForEvents(1, &event);
+	//LOG(INFO) << off_c;
 /*
 	float *cpu_a = new float[M * K];
 	float *cpu_b = new float[K * N];

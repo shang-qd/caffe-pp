@@ -11,6 +11,8 @@
 
 namespace caffe {
 
+static const char* cl_file = "./cl/Conv.cl";
+
 template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
@@ -183,6 +185,12 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   weight_offset_ = conv_out_channels_ * kernel_dim_ / group_;
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
+
+  if (Caffe::mode() == Caffe::CL) {
+	  CaffeCL *cl = CaffeCL::Instance();
+	  std::vector<string> vs = { "im2col", "col2im" };
+	  cl->CreateProgram(cl_file, vs);
+  }
 }
 
 template <typename Dtype>
@@ -265,6 +273,7 @@ void BaseConvolutionLayer<Dtype>::forward_cpu_gemm(const Dtype* input,
       conv_im2col_cpu(input, col_buffer_.mutable_cpu_data());
     }
     col_buff = col_buffer_.cpu_data();
+
   }
   for (int g = 0; g < group_; ++g) {
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, conv_out_channels_ /
@@ -395,6 +404,116 @@ void BaseConvolutionLayer<Dtype>::backward_gpu_bias(Dtype* bias,
 #endif  // !CPU_ONLY
 
 template <typename Dtype>
+void BaseConvolutionLayer<Dtype>::conv_im2col_cl(const Dtype* data,int offD,
+		Dtype* col_buff) {
+    int height = conv_input_shape_.cpu_data()[1];
+    int width = conv_input_shape_.cpu_data()[2];
+    int pad_h = pad_.cpu_data()[0];
+    int pad_w = pad_.cpu_data()[1];
+    int kernel_h = kernel_shape_.cpu_data()[0];
+    int kernel_w = kernel_shape_.cpu_data()[1];
+    int dilation_h = dilation_.cpu_data()[0];
+    int dilation_w = dilation_.cpu_data()[1];
+    int stride_h = stride_.cpu_data()[0];
+    int stride_w = stride_.cpu_data()[1];
+
+	int height_col = (height + 2 * pad_h -
+	      (dilation_h * (kernel_h - 1) + 1)) / stride_h + 1;
+	int width_col = (width + 2 * pad_w -
+	      (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
+
+	int num_kernels = conv_in_channels_ * height_col * width_col;
+
+	size_t g[1] = { (size_t) num_kernels };
+	size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
+
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = nullptr;
+
+	if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
+		kernel = cl->GetKernel(cl_file)["im2col"];
+    	clSetKernelArg(kernel, 0, sizeof(int), &num_kernels);
+    	clSetKernelArg(kernel, 1, sizeof(cl_mem), &data);
+    	clSetKernelArg(kernel, 2, sizeof(int), &offD);
+    	clSetKernelArg(kernel, 3, sizeof(int), &height);
+    	clSetKernelArg(kernel, 4, sizeof(int), &width);
+    	clSetKernelArg(kernel, 5, sizeof(int), &kernel_h);
+    	clSetKernelArg(kernel, 6, sizeof(int), &kernel_w);
+    	clSetKernelArg(kernel, 7, sizeof(int), &pad_h);
+    	clSetKernelArg(kernel, 8, sizeof(int), &pad_w);
+    	clSetKernelArg(kernel, 9, sizeof(int), &stride_h);
+    	clSetKernelArg(kernel, 10, sizeof(int), &stride_w);
+    	clSetKernelArg(kernel, 11, sizeof(int), &dilation_h);
+    	clSetKernelArg(kernel, 12, sizeof(int), &dilation_w);
+    	clSetKernelArg(kernel, 13, sizeof(int), &height_col);
+    	clSetKernelArg(kernel, 14, sizeof(int), &width_col);
+    	clSetKernelArg(kernel, 15, sizeof(cl_mem), &col_buff);
+    	cl->ExecKernel(kernel, 1, g, l);
+      } else {
+    	  LOG(FATAL) << "not use force_nd_im2col_";
+      }
+}
+
+template <typename Dtype>
+void BaseConvolutionLayer<Dtype>::conv_col2im_cl(const Dtype* col_buff,
+		Dtype* data_im,int offD) {
+
+	int height = conv_input_shape_.cpu_data()[1];
+	int width = conv_input_shape_.cpu_data()[2];
+	int channels = conv_in_channels_;
+
+	int kernel_h = kernel_shape_.cpu_data()[0];
+	int kernel_w = kernel_shape_.cpu_data()[1];
+
+	int pad_h = pad_.cpu_data()[0];
+	int pad_w = pad_.cpu_data()[1];
+
+	int stride_h = stride_.cpu_data()[0];
+	int stride_w = stride_.cpu_data()[1];
+	int dilation_h = dilation_.cpu_data()[0];
+	int dilation_w = dilation_.cpu_data()[1];
+
+	int height_col = (height + 2 * pad_h - (dilation_h * (kernel_h - 1) + 1)) /
+		      stride_h + 1;
+	int width_col = (width + 2 * pad_w - (dilation_w * (kernel_w - 1) + 1)) /
+		      stride_w + 1;
+	int num_kernels = channels * height * width;
+
+	size_t g[1] = { (size_t)num_kernels};
+	size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
+
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["col2im"];
+
+
+	if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
+    	clSetKernelArg(kernel, 0, sizeof(int), &num_kernels);
+    	clSetKernelArg(kernel, 1, sizeof(cl_mem), &col_buff);
+    	clSetKernelArg(kernel, 2, sizeof(int), &height);
+    	clSetKernelArg(kernel, 3, sizeof(int), &width);
+    	clSetKernelArg(kernel, 4, sizeof(int), &channels);
+
+    	clSetKernelArg(kernel, 5, sizeof(int), &kernel_h);
+    	clSetKernelArg(kernel, 6, sizeof(int), &kernel_w);
+    	clSetKernelArg(kernel, 7, sizeof(int), &pad_h);
+    	clSetKernelArg(kernel, 8, sizeof(int), &pad_w);
+    	clSetKernelArg(kernel, 9, sizeof(int), &stride_h);
+    	clSetKernelArg(kernel, 10, sizeof(int), &stride_w);
+    	clSetKernelArg(kernel, 11, sizeof(int), &dilation_h);
+    	clSetKernelArg(kernel, 12, sizeof(int), &dilation_w);
+    	clSetKernelArg(kernel, 13, sizeof(int), &height_col);
+    	clSetKernelArg(kernel, 14, sizeof(int), &width_col);
+    	clSetKernelArg(kernel, 15, sizeof(cl_mem), &data_im);
+    	clSetKernelArg(kernel, 16, sizeof(int), &offD);
+    	cl->ExecKernel(kernel, 1, g, l);
+
+    } else {
+    	  LOG(FATAL) << "not use force_nd_im2col_";
+    }
+}
+
+
+template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::forward_cl_gemm(
 		const Dtype* input,int off_input,
 		const Dtype* weights,int off_weights,
@@ -405,6 +524,8 @@ void BaseConvolutionLayer<Dtype>::forward_cl_gemm(
       conv_im2col_cl(input, off_input, col_buffer_.mutable_gpu_data());
     }
     col_buff = col_buffer_.gpu_data();
+    //sum(col_buffer_) = 1715.45
+    //LOG(INFO) << "col_buffer :  " << off_input <<  ","  << math_cl::debug_sum<Dtype>(col_buffer_.cpu_data(),col_buffer_.count());
     off_input = 0;
   }
 
@@ -412,12 +533,15 @@ void BaseConvolutionLayer<Dtype>::forward_cl_gemm(
 	int off_i = off_input + col_offset_ * g;
 	int off_w = off_weights + weight_offset_ * g;
 	int off_o = off_output + output_offset_ * g;
-
+	int M = conv_out_channels_ / group_;
+	int N = conv_out_spatial_dim_;
+	int K = kernel_dim_;
 	math_cl::caffe_cl_gemm(clblasNoTrans, clblasNoTrans,
-			conv_out_channels_ / group_, conv_out_spatial_dim_, kernel_dim_,
+			M, N, K,
 			(Dtype)1., weights,off_w,
 			col_buff,off_i,(Dtype)0.,
 			output, off_o);
+	//LOG(INFO) << off_o;
   }
 }
 
@@ -433,19 +557,22 @@ void BaseConvolutionLayer<Dtype>::forward_cl_bias(Dtype* output,int off_output,
 
 template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::backward_cl_gemm(const Dtype* output,int off_output,
-    const Dtype* weights,int off_weights, Dtype* input,int off_input)
-	{
+    const Dtype* weights,int off_weights, Dtype* input,int off_input) {
 	 Dtype* col_buff = col_buffer_.mutable_gpu_data();
+	 int temp_off =  0;
 	  if (is_1x1_) {
 	    col_buff = input;
+	    temp_off = off_input;
 	  }
 	  for (int g = 0; g < group_; ++g) {
 		  math_cl::caffe_cl_gemm<Dtype>(clblasTrans, clblasNoTrans, kernel_dim_,
 				  conv_out_spatial_dim_, conv_out_channels_ / group_, (Dtype)1.,
 				  weights,off_weights + weight_offset_ * g,
 				  output,off_output + output_offset_ * g,(Dtype)0.,
-				  col_buff,off_input + col_offset_ * g);
+				  col_buff,temp_off + col_offset_ * g);
+
 	  }
+	  //LOG(INFO) << " CL : " << math_cl::debug_sum(col_buffer_.cpu_data(),col_buffer_.count());
 	  if (!is_1x1_) {
 			conv_col2im_cl(col_buff, input,off_input);
 	  }
@@ -473,7 +600,7 @@ void BaseConvolutionLayer<Dtype>::weight_cl_gemm(const Dtype* input,int off_inpu
 template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::backward_cl_bias(Dtype* bias,int off_bias,
     const Dtype* input,int off_input) {
-	math_cl::caffe_cl_gemv<Dtype>(clblasNoTrans,num_output_,out_spatial_dim_,(Dtype)1.,
+	math_cl::caffe_cl_gemv<Dtype>(clblasNoTrans,out_spatial_dim_,num_output_,(Dtype)1.,
 			input,off_input,
 			bias_multiplier_.gpu_data(),0,(Dtype)1.,
 			bias,off_bias);
