@@ -31,6 +31,15 @@ template <typename Dtype>
 void caffe_cl_gemv(const clblasTranspose TransA, const int M, const int N,
     const Dtype alpha, const Dtype* A,int offA, const Dtype* x,int offX, const Dtype beta,
     Dtype* y,int offY);
+
+void caffe_cl_mul(const int N, const float* a,
+    const float* b, float* y);
+
+void caffe_cl_asum(const int n, const float* x, float* y);
+
+void caffe_cl_scal(const int N, const float alpha, float *X);
+
 };
+
 
 #endif

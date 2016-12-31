@@ -373,8 +373,6 @@ void PoolingLayer<Dtype>::Forward_cl(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void PoolingLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-	//Backward_cpu(top,propagate_down,bottom);
-	//return;
 	if (!propagate_down[0]) {
 	    return;
 	  }

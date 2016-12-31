@@ -4,8 +4,12 @@
 
 #include "caffe/layers/softmax_loss_layer.hpp"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/CaffeCL.h"
+#include "caffe/util/math_functions_cl.hpp"
 
 namespace caffe {
+
+static const char* cl_file = "./cl/SoftmaxLoss.cl";
 
 template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::LayerSetUp(
@@ -33,6 +37,11 @@ void SoftmaxWithLossLayer<Dtype>::LayerSetUp(
   } else {
     normalization_ = this->layer_param_.loss_param().normalization();
   }
+  if (Caffe::mode() == Caffe::CL) {
+  	  CaffeCL *cl = CaffeCL::Instance();
+  	  std::vector<string> vs = { "SoftmaxLossForward","SoftmaxLossBackward" };
+  	  cl->CreateProgram(cl_file, vs);
+   }
 }
 
 template <typename Dtype>
@@ -148,6 +157,116 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
+void SoftmaxLossForward(int nthreads, float *prob_data, float *label, float *loss_data,
+    int outer_num_, int dim, int inner_num_, int has_ignore_label_, int ignore_label_, float *counts)
+{
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["SoftmaxLossForward"];
+	clSetKernelArg(kernel, 0, sizeof(int), &nthreads);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &prob_data);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &label);
+	clSetKernelArg(kernel, 3, sizeof(cl_mem), &loss_data);
+	clSetKernelArg(kernel, 4, sizeof(int), &outer_num_);
+	clSetKernelArg(kernel, 5, sizeof(int), &dim);
+	clSetKernelArg(kernel, 6, sizeof(int), &inner_num_);
+	clSetKernelArg(kernel, 7, sizeof(int), &has_ignore_label_);
+	clSetKernelArg(kernel, 8, sizeof(int), &ignore_label_);
+	clSetKernelArg(kernel, 9, sizeof(cl_mem), &counts);
+	size_t g[1] = { (size_t)nthreads };
+	size_t l[1]= { (size_t)CAFFE_CL_NUM_THREADS };
+	cl->ExecKernel(kernel, 1, g, l);
+}
+
+template <typename Dtype>
+void SoftmaxWithLossLayer<Dtype>::Forward_cl(
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+	softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
+	  const Dtype* prob_data = prob_.gpu_data();
+	  const Dtype* label = bottom[1]->gpu_data();
+	  const int dim = prob_.count() / outer_num_;
+	  const int nthreads = outer_num_ * inner_num_;
+	  // Since this memory is not used for anything until it is overwritten
+	  // on the backward pass, we use it here to avoid having to allocate new GPU
+	  // memory to accumulate intermediate results in the kernel.
+	  Dtype* loss_data = bottom[0]->mutable_gpu_diff();
+	  // Similarly, this memory is never used elsewhere, and thus we can use it
+	  // to avoid having to allocate additional GPU memory.
+	  Dtype* counts = prob_.mutable_gpu_diff();
+	  // NOLINT_NEXT_LINE(whitespace/operators)
+
+	  SoftmaxLossForward(nthreads, (float*)prob_data, (float*)label,
+			  (float*)loss_data, outer_num_, dim, inner_num_, has_ignore_label_,
+			  ignore_label_,(float*)counts);
+
+	  Dtype loss;
+	  math_cl::caffe_cl_asum(nthreads, (float*)loss_data, (float*)&loss);
+	  Dtype valid_count = -1;
+	  if (normalization_ == LossParameter_NormalizationMode_VALID &&
+	      has_ignore_label_) {
+		  math_cl::caffe_cl_asum(nthreads, (float*)counts, (float*)&valid_count);
+	  }
+	  top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_,
+	                                                        valid_count);
+	  if (top.size() == 2) {
+	    top[1]->ShareData(prob_);
+	  }
+}
+
+
+
+void SoftmaxLossBackward(const int nthreads, const float* top,
+          const float* label, float* bottom_diff, const int num, const int dim,
+          const int spatial_dim, const int has_ignore_label_,
+          const int ignore_label_,  float* counts)
+{
+
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["SoftmaxLossBackward"];
+	clSetKernelArg(kernel, 0, sizeof(int), &nthreads);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &top);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &label);
+	clSetKernelArg(kernel, 3, sizeof(cl_mem), &bottom_diff);
+	clSetKernelArg(kernel, 4, sizeof(int), &num);
+	clSetKernelArg(kernel, 5, sizeof(int), &dim);
+	clSetKernelArg(kernel, 6, sizeof(int), &spatial_dim);
+	clSetKernelArg(kernel, 7, sizeof(int), &has_ignore_label_);
+	clSetKernelArg(kernel, 8, sizeof(int), &ignore_label_);
+	clSetKernelArg(kernel, 9, sizeof(cl_mem), &counts);
+	size_t g[1] = { (size_t)nthreads };
+	size_t l[1]= { (size_t)CAFFE_CL_NUM_THREADS };
+	cl->ExecKernel(kernel, 1, g, l);
+}
+
+template <typename Dtype>
+void SoftmaxWithLossLayer<Dtype>::Backward_cl(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+	if (propagate_down[1]) {
+	    LOG(FATAL) << this->type()
+	               << " Layer cannot backpropagate to label inputs.";
+	  }
+	  if (propagate_down[0]) {
+	    Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
+	    const Dtype* prob_data = prob_.gpu_data();
+	    const Dtype* top_data = top[0]->gpu_data();
+	    math_cl::caffe_copy(prob_.count(), prob_data, bottom_diff);
+	    const Dtype* label = bottom[1]->gpu_data();
+	    const int dim = prob_.count() / outer_num_;
+	    const int nthreads = outer_num_ * inner_num_;
+	    Dtype* counts = prob_.mutable_gpu_diff();
+	    SoftmaxLossBackward(nthreads, (float*)top_data, (float*)label, (float*)bottom_diff,
+	        outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_, (float*)counts);
+
+	    Dtype valid_count = -1;
+	    if (normalization_ == LossParameter_NormalizationMode_VALID &&
+	        has_ignore_label_) {
+	      math_cl::caffe_cl_asum(nthreads, (float*)counts, (float*)&valid_count);
+	    }
+	    const Dtype loss_weight = top[0]->cpu_diff()[0] /
+	                              get_normalizer(normalization_, valid_count);
+	    math_cl::caffe_cl_scal(prob_.count(), (float)loss_weight,
+	    		(float*)bottom_diff);
+	  }
+  }
 #ifdef CPU_ONLY
 STUB_GPU(SoftmaxWithLossLayer);
 #endif

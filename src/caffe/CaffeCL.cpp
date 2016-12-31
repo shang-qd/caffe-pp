@@ -31,7 +31,8 @@ CaffeCL::CaffeCL() : m_context(nullptr), m_commandQueue(nullptr), m_device(nullp
 
 bool CaffeCL::Init()
 {
-	std::vector<std::string> kn = {"caffe_copy","caffe_set"};
+	std::vector<std::string> kn = {"caffe_copy","caffe_set",
+			"caffe_mul","caffe_scal"};
 	CreateProgram(cl_file,kn);
 	cl_int err = clblasSetup();
 	if (err != CL_SUCCESS) {
@@ -150,7 +151,7 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 		(const char**)&srcStr,NULL, &err);
 	if (program == nullptr)
 	{
-		LOG(FATAL) << "CaffeCL::CreateProgram" << err;
+		LOG(FATAL) << "CaffeCL::CreateProgram " << err;
 		return false;
 	}
 	cl_int errNum = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
@@ -159,7 +160,7 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 		char buildLog[16384];
 		clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG,sizeof(buildLog), buildLog, NULL);
 
-		LOG(FATAL) << "CaffeCL::CreateProgram:" << buildLog;
+		LOG(FATAL) << fileName << " : CreateProgram: " << buildLog;
 		return false;
 	}
 	program_info pi;

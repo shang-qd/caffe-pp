@@ -79,50 +79,8 @@ void caffe_cl_gemm(const clblasTranspose TransA,const clblasTranspose TransB,
 				1, &cl->m_commandQueue, 0, NULL, &event);
 
 	res |= clWaitForEvents(1, &event);
-	//LOG(INFO) << off_c;
-/*
-	float *cpu_a = new float[M * K];
-	float *cpu_b = new float[K * N];
-	float *cpu_c = new float[M * N];
-
-	res |= clEnqueueReadBuffer(cl->m_commandQueue, (cl_mem)buf_a, CL_TRUE, 0,
-							M * K * 4,cpu_a, 0, nullptr, nullptr);
-	res |= clEnqueueReadBuffer(cl->m_commandQueue, (cl_mem)buf_b, CL_TRUE, 0,
-							K * N * 4,cpu_b, 0, nullptr, nullptr);
-
-	res |= clEnqueueReadBuffer(cl->m_commandQueue, (cl_mem)buf_c, CL_TRUE, 0,
-				M * N * 4,cpu_c, 0, nullptr, nullptr);
-
-	float sum_a = 0;
-	float sum_b = 0;
-	float sum_c = 0;
-
-	float d_sum_c = 0;
-	  float *d_c = new float[M * N];
-	  for (int i = 0; i < M; i++){
-		  for (int j = 0; j < N; j++){
-			  float sum = 0;
-			  for (int k = 0; k < K; k++){
-				  sum += cpu_a[i * K + k] * cpu_b[k * N + j];
-			  }
-			  d_c[i * N + j] = sum;
-		  }
-	  }
-	for (int i = 0; i < M * K; i++){
-		  sum_a += cpu_a[i];
-	  }
-	  for (int i = 0; i < K * N; i++){
-		  sum_b += cpu_b[i];
-	  }
-	  for (int i = 0; i < M * N; i++){
-		  sum_c += cpu_c[i];
-		  d_sum_c += d_c[i];
-	  }
-	  LOG(INFO) << M << " : " << N << " : " << K;
-	  LOG(FATAL) << "CL " << sum_a << ":" <<  sum_b << ":" << sum_c << " = " << d_sum_c;
-*/
 	if (res != CL_SUCCESS) {
-			LOG(FATAL) << "CaffeCL::gpu2host" << res;
+		LOG(FATAL) << "clblasSgemm: " << res;
 	}
 }
 
@@ -151,4 +109,43 @@ template void caffe_cl_gemv<float>(const clblasTranspose TransA, const int M, co
 template void caffe_cl_gemv<double>(const clblasTranspose TransA, const int M, const int N,
     const double alpha, const double* A,int offA, const double* x,int offX, const double beta,
 	double* y,int offY);
+
+void caffe_cl_mul(const int N, const float* a,
+		const float* b, float* y) {
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["caffe_mul"];
+	clSetKernelArg(kernel, 0, sizeof(int), &N);
+	clSetKernelArg(kernel, 1, sizeof(cl_mem), &a);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &b);
+	clSetKernelArg(kernel, 3, sizeof(cl_mem), &y);
+	size_t g[1] = { (size_t)N };
+	size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
+	cl->ExecKernel(kernel, 1, g, l);
+}
+
+void caffe_cl_asum(const int n, const float* x, float* y) {
+	// TODO 方法很笨
+    float *res = new float[n];
+    CaffeCL *cl = CaffeCL::Instance();
+    clEnqueueReadBuffer(cl->m_commandQueue, (cl_mem)x, CL_TRUE, 0,
+    		n * sizeof(cl_float),res, 0, NULL, NULL);
+    for (int i = 0; i < n; i++) {
+    	*y += res[i];
+    }
+    delete []res;
+}
+
+
+void caffe_cl_scal(const int N, const float alpha, float *X) {
+  //CUBLAS_CHECK(cublasSscal(Caffe::cublas_handle(), N, &alpha, X, 1));
+	CaffeCL *cl = CaffeCL::Instance();
+	cl_kernel kernel = cl->GetKernel(cl_file)["caffe_scal"];
+	clSetKernelArg(kernel, 0, sizeof(int), &N);
+	clSetKernelArg(kernel, 1, sizeof(float), &alpha);
+	clSetKernelArg(kernel, 2, sizeof(cl_mem), &X);
+	size_t g[1] = { (size_t)N };
+	size_t l[1] = { (size_t)CAFFE_CL_NUM_THREADS };
+	cl->ExecKernel(kernel, 1, g, l);
+}
+
 }; // end namespace
