@@ -171,7 +171,7 @@ bool CaffeCL::CreateProgram(const char* fileName, const vector<string> &vsk)
 		cl_kernel k = clCreateKernel(program, vsk[i].c_str(), nullptr);
 		if (k == nullptr)
 		{
-			LOG(FATAL) << "CaffeCL::CreateProgram" << vsk[i];
+			LOG(FATAL) << "CaffeCL::CreateProgram " << vsk[i];
 		}
 		kernels.insert(std::make_pair(vsk[i], k));
 	}
