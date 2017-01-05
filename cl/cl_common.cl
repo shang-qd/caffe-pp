@@ -38,3 +38,22 @@ kernel void caffe_asum(const int n, global const float* x, global float* res)
 		res += x[i];
 	}
 }*/
+
+kernel void caffe_asum(global uint4* input, global uint4* output, local uint4* sdata)
+{
+    unsigned int tid = get_local_id(0);
+    unsigned int bid = get_group_id(0);
+    unsigned int gid = get_global_id(0);
+    unsigned int localSize = get_local_size(0);
+    unsigned int stride = gid * 2;
+    sdata[tid] = input[stride] + input[stride + 1];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for(unsigned int s = localSize >> 1; s > 0; s >>= 1) {
+	if(tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    if(tid == 0) 
+	output[bid] = sdata[0];
+}
